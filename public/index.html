@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>놀이터 - 친구랑 같이 하는 게임</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/common.css">
+  <style>
+    .wrap { max-width: 900px; margin: 0 auto; padding: 40px 16px 60px; }
+    h1 { font-size: 48px; margin: 0 0 6px; text-align: center; }
+    h1 span { color: var(--primary); }
+    .sub { text-align: center; color: var(--muted); font-size: 20px; margin: 0 0 36px; }
+    .games { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 22px; }
+    .game { text-decoration: none; display: flex; flex-direction: column; gap: 12px; transition: transform .15s; }
+    .game:hover { transform: translateY(-4px) rotate(-.5deg); }
+    .thumb { height: 170px; border-radius: 16px; display: grid; place-items: center; font-size: 80px; }
+    .game h2 { margin: 0; font-size: 28px; }
+    .game p { margin: 0; color: var(--muted); font-size: 17px; line-height: 1.4; }
+    .tag { align-self: flex-start; font-size: 15px; padding: 4px 10px; border-radius: 99px; background: #E8F7EA; color: #3E8E4A; }
+    .soon { opacity: .6; pointer-events: none; }
+    .soon .tag { background: #F2F2F5; color: var(--muted); }
+    .join { margin-top: 36px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: center; }
+    .join input { max-width: 200px; text-align: center; letter-spacing: 6px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🎈 <span>놀이터</span></h1>
+    <p class="sub">친구들과 코드 하나로 모여서 같이 놀아요!</p>
+
+    <div class="games">
+      <a class="card game" href="/puzzle/">
+        <div class="thumb" style="background: linear-gradient(135deg,#FFE29F,#FFA99F)">🧩</div>
+        <span class="tag">플레이 가능</span>
+        <h2>함께 맞추는 퍼즐</h2>
+        <p>사진 한 장을 여러 조각으로 나눠 친구들과 나눠 가져요. 내 조각을 모두 맞추면 그림이 완성!</p>
+      </a>
+      <div class="card game soon">
+        <div class="thumb" style="background: linear-gradient(135deg,#D4FC79,#96E6A1)">❓</div>
+        <span class="tag">준비 중</span>
+        <h2>두 번째 게임</h2>
+        <p>곧 새로운 게임이 찾아와요.</p>
+      </div>
+    </div>
+
+    <div class="join">
+      <span style="font-size:20px">퍼즐 방 코드가 있나요?</span>
+      <input id="code" type="text" inputmode="numeric" maxlength="4" placeholder="0000">
+      <button class="btn blue" id="go">들어가기</button>
+    </div>
+  </div>
+  <script>
+    const input = document.getElementById('code');
+    const go = () => { const c = input.value.trim(); if (c) location.href = '/puzzle/?code=' + encodeURIComponent(c); };
+    document.getElementById('go').onclick = go;
+    input.addEventListener('keydown', e => e.key === 'Enter' && go());
+  </script>
+</body>
+</html>

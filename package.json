@@ -1,0 +1,21 @@
+{
+  "name": "kids-game-hub",
+  "version": "1.0.0",
+  "description": "아이들이 코드로 모여 함께 노는 웹 게임 허브",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/sim.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.22.3",
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.8.4"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.4"
+  }
+}

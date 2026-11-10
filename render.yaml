@@ -1,0 +1,8 @@
+# Render(https://render.com) 무료 배포 설정 - GitHub 저장소를 연결하면 자동으로 읽습니다.
+services:
+  - type: web
+    name: kids-game-hub
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
