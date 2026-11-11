@@ -8,6 +8,7 @@ const { Server } = require('socket.io');
 const QRCode = require('qrcode');
 
 const registerPuzzle = require('./games/puzzle/server');
+const registerVerse = require('./games/verse/server');
 
 const app = express();
 const server = http.createServer(app);
@@ -42,7 +43,7 @@ app.get('/api/qr', async (req, res) => {
 
 // ---- 게임 등록 ----
 registerPuzzle(io.of('/puzzle'));
-// registerGame2(io.of('/game2'));  // 두 번째 게임은 여기에 추가
+registerVerse(io.of('/verse'));
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
