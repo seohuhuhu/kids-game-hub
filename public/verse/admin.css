@@ -1,0 +1,43 @@
+/* 말씀 블록 관리자 (기본 배치는 /puzzle/admin.css 재사용) */
+.mode-pick { display: grid; gap: 8px; }
+.mode-pick button { font-family: inherit; text-align: left; border: 2px solid var(--line); background: #fff; border-radius: 12px; padding: 10px 12px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
+.mode-pick button small { color: var(--sub); font-size: 13px; }
+.mode-pick button.sel { border-color: var(--cyan); background: #ECFEFF; }
+.current-verse { background: #F6F8FA; border-radius: 12px; padding: 10px 12px; font-weight: 700; line-height: 1.5; }
+.current-verse .ref { display: block; color: var(--sub); font-size: 13px; font-weight: 500; margin-top: 2px; }
+
+.verse-editor { margin-bottom: 18px; display: flex; flex-direction: column; gap: 10px; }
+.verse-editor textarea, .ref-input {
+  font-family: inherit; font-size: 18px; border: 1.5px solid var(--line); border-radius: 12px; padding: 10px 12px; width: 100%; resize: vertical; outline: none;
+}
+.verse-editor textarea:focus, .ref-input:focus { border-color: var(--cyan); }
+.verse-row { display: flex; gap: 8px; }
+.verse-row .btn { flex: none; padding: 10px 20px; }
+.preview-blocks { display: flex; flex-wrap: wrap; gap: 6px; min-height: 8px; }
+.pv { font-weight: 900; font-size: 15px; border: 2px solid var(--ink); border-radius: 10px; padding: 4px 10px; background: #fff; }
+.pv-count { font-size: 13px; color: var(--sub); align-self: center; }
+.verse-list-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.verse-list { display: flex; flex-direction: column; gap: 8px; }
+.verse-item { position: relative; text-align: left; font-family: inherit; border: 2px solid var(--line); background: #fff; border-radius: 12px; padding: 10px 40px 10px 12px; cursor: pointer; }
+.verse-item.sel { border-color: var(--cyan); background: #ECFEFF; }
+.verse-item b { display: block; font-size: 16px; line-height: 1.4; }
+.verse-item small { color: var(--sub); }
+.verse-item .del { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border-radius: 50%; border: 0; background: #EEF1F5; cursor: pointer; }
+
+/* 게임 중 그룹 카드 */
+.vb-groups { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
+.hint-btn.on { background: #F5C518; color: #3D2E00; box-shadow: 0 0 0 4px rgba(245,197,24,.3); }
+.vb-line { display: flex; flex-wrap: wrap; gap: 6px; }
+.vb-slot { position: relative; min-width: 46px; padding: 12px 8px 5px; border-radius: 10px; border: 2px dashed #CBD2D9; background: #F8FAFC; font-weight: 900; font-size: 15px; text-align: center; }
+.vb-slot .n { position: absolute; top: 1px; left: 5px; font-size: 9px; color: var(--muted); font-weight: 700; }
+.vb-slot.filled { border-style: solid; border-color: var(--c); background: #fff; }
+.vb-slot.locked { border-color: #22C55E; background: #ECFDF3; }
+.vb-slot.ping { animation: pop .4s; }
+.submit-state { font-size: 14px; font-weight: 700; }
+.submit-state.bad { color: #DC2626; }
+
+/* 구절 크게 보기 */
+.verse-overlay { background: rgba(17,20,24,.85); }
+.verse-big-wrap { max-width: 1100px; width: 100%; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 18px; animation: rise .3s; }
+.verse-big { color: #fff; font-weight: 900; font-size: clamp(32px, 6vw, 72px); line-height: 1.35; word-break: keep-all; }
+.verse-big-ref { color: #6EE75A; font-weight: 900; font-size: clamp(20px, 3vw, 34px); }
