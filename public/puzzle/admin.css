@@ -93,3 +93,27 @@ select { font-family: inherit; font-size: 16px; padding: 7px 8px; border-radius:
 .qr-big-card { max-width: 640px !important; }
 .qr.big { width: min(64vmin, 480px); height: min(64vmin, 480px); margin: 18px auto 8px; }
 .big-code { font-weight: 900; font-size: 56px; letter-spacing: 14px; margin-bottom: 14px; }
+
+/* 그룹 이름 수정 */
+.gname { font-family: inherit; font-weight: 900; font-size: 19px; border: 1.5px dashed transparent; border-radius: 8px; padding: 2px 6px; width: 100%; min-width: 0; background: transparent; color: var(--ink); }
+.gname:hover { border-color: var(--line); }
+.gname:focus { outline: none; border: 1.5px solid var(--cyan); background: #fff; }
+.gcol-head { gap: 8px; align-items: center; }
+.gcol-head .muted { flex: none; }
+.gcard-head .gname { font-size: 21px; }
+
+/* 투명도 */
+.opacity, .opacity-pill { display: flex; align-items: center; gap: 8px; }
+.opacity input, .opacity-pill input { width: 120px; accent-color: #22C1D6; }
+.opacity b, .opacity-pill b { min-width: 42px; text-align: right; }
+
+/* 올린 사진 목록 */
+.library-head { display: flex; justify-content: space-between; align-items: baseline; margin-top: 10px; font-weight: 700; }
+.library { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.library > span { grid-column: 1 / -1; padding: 6px 0; }
+.lib-item { position: relative; aspect-ratio: 1; border-radius: 10px; background: center/cover #eee; border: 3px solid transparent; cursor: pointer; padding: 0; }
+.lib-item.sel { border-color: var(--cyan); }
+.lib-item .del { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 50%; border: 0; background: var(--ink); color: #fff; font-size: 11px; line-height: 20px; cursor: pointer; padding: 0; }
+
+/* 작은 판의 올려 둔 조각 */
+.mini-wrap .layer.loose .piece { opacity: .45; }

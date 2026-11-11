@@ -11,6 +11,7 @@
   let clockOffset = 0;
   const minis = new Map();     // 그룹별 작은 퍼즐 판
   const flashes = [];          // 방금 맞춘 조각 (반짝 효과)
+  let library = { current: null, items: [] };
 
   // ---------- 로그인 / 방 ----------
   const saved = () => store.get(ADMIN_KEY);
@@ -84,9 +85,40 @@
   $('g-minus').onclick = () => send({ groups: room.settings.groups - 1 });
   $('g-plus').onclick = () => send({ groups: room.settings.groups + 1 });
 
-  function sendImage(dataUrl) {
-    socket.emit('admin:image', dataUrl, res => { if (!res.ok) toast(res.error || '사진을 올리지 못했어요.'); });
+  function sendImage(dataUrl, extra = {}) {
+    socket.emit('admin:image', { dataUrl, ...extra }, res => { if (!res.ok) toast(res.error || '사진을 올리지 못했어요.'); });
   }
+
+  // 투명도 (대기실과 게임 중 둘 다)
+  ['opacity', 'opacity2'].forEach(id => {
+    $(id).oninput = e => { $(id + '-val').textContent = e.target.value + '%'; };
+    $(id).onchange = e => send({ opacity: +e.target.value / 100 });
+  });
+  function showOpacity() {
+    const v = Math.round(room.settings.opacity * 100);
+    ['opacity', 'opacity2'].forEach(id => {
+      if (document.activeElement !== $(id)) $(id).value = v;
+      $(id + '-val').textContent = $(id).value + '%';
+    });
+  }
+
+  // 올린 사진 목록 (방에 임시 보관)
+  function renderLibrary() {
+    const box = $('library');
+    if (!library.items.length) { box.replaceChildren(el('span', 'muted small', '아직 올린 사진이 없어요')); return; }
+    box.replaceChildren(...library.items.map(item => {
+      const b = el('button', 'lib-item' + (item.id === library.current ? ' sel' : ''));
+      b.style.backgroundImage = `url(${item.thumb})`;
+      b.title = '이 사진으로 퍼즐 만들기';
+      b.onclick = () => { selectedPreset = null; socket.emit('admin:useImage', { id: item.id }, r => r.ok || toast(r.error)); };
+      const del = el('button', 'del', '✕');
+      del.title = '목록에서 지우기';
+      del.onclick = ev => { ev.stopPropagation(); socket.emit('admin:deleteImage', { id: item.id }); };
+      b.append(del);
+      return b;
+    }));
+  }
+  socket.on('library', lib => { library = lib; renderLibrary(); });
   PRESETS.forEach(p => {
     const b = el('button');
     b.title = p.name;
@@ -99,7 +131,12 @@
     const f = e.target.files[0];
     e.target.value = '';
     if (!f) return;
-    try { selectedPreset = null; sendImage(await PZ.fileToDataUrl(f)); }
+    try {
+      selectedPreset = null;
+      const [full, thumb] = await Promise.all([PZ.fileToDataUrl(f), PZ.fileToDataUrl(f, 240, 0.7)]);
+      sendImage(full, { thumb, save: true });
+      toast('사진을 올렸어요. 올린 사진 목록에서 다시 고를 수 있어요');
+    }
     catch { toast('이 파일은 사진으로 열 수 없어요.'); }
   };
 
@@ -138,6 +175,24 @@
     return c;
   }
 
+  // 그룹 이름 고치기 (Enter 또는 다른 곳 누르면 저장)
+  function nameInput(g) {
+    const i = el('input', 'gname');
+    i.value = g.name;
+    i.maxLength = 10;
+    i.title = '눌러서 그룹 이름 바꾸기';
+    const save = () => {
+      const v = i.value.trim();
+      if (v && v !== g.name) socket.emit('admin:rename', { group: g.index, name: v });
+      else i.value = g.name;
+    };
+    i.onkeydown = e => { if (e.key === 'Enter') i.blur(); if (e.key === 'Escape') { i.value = g.name; i.blur(); } };
+    i.onblur = save;
+    return i;
+  }
+
+  const editingName = () => document.activeElement && document.activeElement.classList.contains('gname');
+
   function renderLobby() {
     const { rows, cols, shape, groups } = room.settings;
     $('cols').value = cols;
@@ -168,11 +223,11 @@
     $('unassigned').replaceChildren(...un.map(p => chip(p, { move: true })));
     if (!un.length) $('unassigned').append(el('span', 'muted small', '모두 그룹을 골랐어요'));
 
-    $('group-board').replaceChildren(...room.groups.map(g => {
+    if (!editingName()) $('group-board').replaceChildren(...room.groups.map(g => {
       const members = room.players.filter(p => p.group === g.index);
       const col = el('div', 'gcol');
       const head = el('div', 'gcol-head');
-      head.append(el('b', null, g.name), el('span', 'muted', `${members.length}명`));
+      head.append(nameInput(g), el('span', 'muted', `${members.length}명`));
       const list = el('div', 'chips');
       if (members.length) list.append(...members.map(p => chip(p, { move: true })));
       else list.append(el('div', 'empty', '아직 아무도 없어요'));
@@ -192,27 +247,28 @@
       const guides = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       guides.classList.add('guides');
       const layer = el('div', 'layer');
-      board.append(hint, guides, layer);
+      const loose = el('div', 'layer loose');
+      board.append(hint, guides, layer, loose);
       const cell = Math.floor(Math.min(270 / cols, 230 / rows));
       board.style.width = cell * cols + 'px';
       board.style.height = cell * rows + 'px';
       PZ.drawGuides(guides, g.pieces, rows, cols);
-      m = { key, board, hint, layer, cell, W: cell * cols, H: cell * rows, els: new Map() };
+      m = { key, board, hint, layer, loose, cell, W: cell * cols, H: cell * rows, els: new Map() };
       minis.set(g.index, m);
     }
     m.hint.style.backgroundImage = img ? `url(${img.url})` : '';
     m.board.classList.toggle('hint', room.hint);
     if (img) {
-      g.pieces.filter(p => p.placed).forEach(p => {
+      g.pieces.forEach(p => {
         let w = m.els.get(p.id);
-        if (!w) {
-          w = PZ.makePiece(p);
-          m.els.set(p.id, w);
-          w.style.left = p.col * m.cell + 'px';
-          w.style.top = p.row * m.cell + 'px';
-          m.layer.append(w);
-        }
-        PZ.stylePiece(w, p, { img, cell: m.cell, W: m.W, H: m.H });
+        if (!p.placed && !p.pos) { if (w) { w.remove(); m.els.delete(p.id); } return; }
+        if (!w) { w = PZ.makePiece(p); m.els.set(p.id, w); }
+        const x = p.placed ? p.col / room.settings.cols : p.pos.x, y = p.placed ? p.row / room.settings.rows : p.pos.y;
+        w.style.left = x * m.W + 'px';
+        w.style.top = y * m.H + 'px';
+        const target = p.placed ? m.layer : m.loose;
+        if (w.parentNode !== target) target.append(w);
+        PZ.stylePiece(w, p, { img, cell: m.cell, W: m.W, H: m.H, rot: p.placed ? 0 : p.rot });
       });
     }
     return m;
@@ -231,11 +287,11 @@
     rk.replaceChildren(el('b', null, room.status === 'done' ? '🏆 최종 순위' : '🏁 완성한 그룹'),
       ...finished.map(g => el('span', 'rank-chip', `${g.rank}등 ${g.name} · ${PZ.fmtTime(g.finishedAt - room.startedAt)}`)));
 
-    $('game-groups').replaceChildren(...active.map(g => {
+    if (!editingName()) $('game-groups').replaceChildren(...active.map(g => {
       const card = el('div', 'gcard' + (g.finishedAt ? ' done' : ''));
       card.dataset.group = g.index;
       const head = el('div', 'gcard-head');
-      head.append(el('b', null, g.name));
+      head.append(nameInput(g));
       if (g.rank) head.append(el('span', 'rank', `${g.rank}등`));
       const wrap = el('div', 'mini-wrap');
       wrap.append(miniFor(g).board);
@@ -305,6 +361,8 @@
     $('qr-code').textContent = room.code;
     $('top-status').textContent = { lobby: '🟢 대기 중', playing: '🧩 게임 중', done: '🏆 끝' }[room.status];
     loadQr();
+    showOpacity();
+    if (library.current !== room.imageId) { library.current = room.imageId; renderLibrary(); }
     const lobby = room.status === 'lobby';
     $('v-lobby').classList.toggle('hidden', !lobby);
     $('v-game').classList.toggle('hidden', lobby);

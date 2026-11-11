@@ -84,18 +84,18 @@ window.PZ = (() => {
     });
   }
 
-  // 사진 파일 → 최대 1200px JPEG data URL
-  function fileToDataUrl(file) {
+  // 사진 파일 → 최대 max px JPEG data URL
+  function fileToDataUrl(file, max = 1200, quality = 0.85) {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => {
-        const s = Math.min(1, 1200 / Math.max(img.width, img.height));
+        const s = Math.min(1, max / Math.max(img.width, img.height));
         const c = document.createElement('canvas');
         c.width = Math.round(img.width * s);
         c.height = Math.round(img.height * s);
         c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
         URL.revokeObjectURL(img.src);
-        resolve(c.toDataURL('image/jpeg', 0.85));
+        resolve(c.toDataURL('image/jpeg', quality));
       };
       img.onerror = reject;
       img.src = URL.createObjectURL(file);

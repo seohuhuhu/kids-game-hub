@@ -59,3 +59,13 @@
 
 .done-emoji { font-size: 56px; }
 .done-img { width: 100%; border-radius: 12px; margin: 4px 0 16px; }
+
+/* 판 위에 올려 둔 조각 */
+.layer.loose .piece { filter: drop-shadow(0 2px 0 rgba(0,0,0,.25)) drop-shadow(0 0 1px rgba(0,0,0,.45)); }
+.layer.loose .piece.mine { z-index: 2; }
+.layer.loose .piece.mine .img { pointer-events: auto; cursor: grab; transition: transform .18s; }
+.layer.loose .piece.other { z-index: 1; opacity: var(--op, .5); filter: drop-shadow(0 0 2px var(--c)) drop-shadow(0 0 1px var(--c)); }
+.layer.loose .piece.other::before {
+  content: attr(data-name); position: absolute; left: 2px; top: 2px; z-index: 1;
+  font-size: 11px; font-weight: 700; color: #fff; background: var(--c); padding: 1px 6px; border-radius: 6px; white-space: nowrap;
+}

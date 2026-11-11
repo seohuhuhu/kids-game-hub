@@ -171,6 +171,15 @@
   }
 
   const style = (wrap, p, size) => PZ.stylePiece(wrap, p, { img, cell, size, W, H, rot: p.placed ? 0 : p.rot });
+  const pending = new Map();   // 서버 확인을 기다리는 내 조각 위치 (깜빡임 방지)
+  const posOf = p => (pending.has(p.id) ? pending.get(p.id) : p.pos);
+  const playerOf = id => room.players.find(x => x.pid === id) || {};
+
+  function putLoose(wrap, pos) {
+    wrap.style.left = pos.x * W + 'px';
+    wrap.style.top = pos.y * H + 'px';
+    if (wrap.parentNode !== $('loose')) $('loose').append(wrap);
+  }
 
   function renderGame() {
     const g = myGroup();
@@ -180,36 +189,56 @@
     PZ.drawGuides($('guides'), g.pieces, room.settings.rows, room.settings.cols);
     $('hintimg').style.backgroundImage = `url(${img.url})`;
     $('board').classList.toggle('hint', room.hint);
+    $('board').style.setProperty('--op', room.settings.opacity);
     $('hint-on').classList.toggle('hidden', !room.hint);
     $('game-group').textContent = g.name;
 
     const tray = $('tray'), tc = trayCell();
-    const colorOf = id => (room.players.find(x => x.pid === id) || {}).color;
     g.pieces.forEach(p => {
       let wrap = pieceEls.get(p.id);
+      const pos = posOf(p);
+      const mine = p.owner === pid;
       if (p.placed) {
+        // 정답 자리에 고정된 조각
         if (!wrap) { wrap = PZ.makePiece(p, onDown); pieceEls.set(p.id, wrap); }
-        if (drag && drag.id === p.id) endDrag(false);
+        if (drag && drag.id === p.id) endDrag();
+        pending.delete(p.id);
         style(wrap, p, cell);
-        wrap.classList.remove('dragging', 'shake');
+        wrap.classList.remove('dragging', 'shake', 'mine', 'other');
+        wrap.removeAttribute('data-name');
         wrap.style.left = p.col * cell + 'px';
         wrap.style.top = p.row * cell + 'px';
         if (wrap.parentNode !== $('layer')) $('layer').append(wrap);
         if (!placedSeen.has(p.id)) {
           placedSeen.add(p.id);
           if (p.placedBy !== pid) {
-            wrap.style.setProperty('--flash', colorOf(p.placedBy) || '#fff');
+            wrap.style.setProperty('--flash', playerOf(p.placedBy).color || '#fff');
             wrap.classList.remove('flash'); void wrap.offsetWidth; wrap.classList.add('flash');
           }
         }
-      } else if (p.owner === pid) {
+      } else if (pos) {
+        // 판 위에 올려 둔 조각: 내 것은 또렷하게, 친구 것은 관리자가 정한 투명도로
         if (!wrap) { wrap = PZ.makePiece(p, onDown); pieceEls.set(p.id, wrap); }
         if (drag && drag.id === p.id) { style(wrap, p, cell); return; }
+        style(wrap, p, cell);
+        wrap.classList.toggle('mine', mine);
+        wrap.classList.toggle('other', !mine);
+        if (mine) wrap.removeAttribute('data-name');
+        else {
+          const o = playerOf(p.owner);
+          wrap.dataset.name = o.name || '';
+          wrap.style.setProperty('--c', o.color || '#888');
+        }
+        putLoose(wrap, pos);
+      } else if (mine) {
+        if (!wrap) { wrap = PZ.makePiece(p, onDown); pieceEls.set(p.id, wrap); }
+        if (drag && drag.id === p.id) { style(wrap, p, cell); return; }
+        wrap.classList.remove('mine', 'other');
         style(wrap, p, tc);
         wrap.style.left = wrap.style.top = '';
         if (wrap.parentNode !== tray) tray.append(wrap);
       } else if (wrap) {
-        if (drag && drag.id === p.id) endDrag(false);
+        if (drag && drag.id === p.id) endDrag();
         wrap.remove();
         pieceEls.delete(p.id);
       }
@@ -217,7 +246,9 @@
     document.querySelectorAll('.slot-ph').forEach(ph => { ph.style.width = ph.style.height = tc + 'px'; });
 
     const me = meP();
-    $('tray-title').textContent = me.left ? `내 조각 ${me.left}개` : '내 조각';
+    const inTray = g.pieces.filter(p => p.owner === pid && !p.placed && !posOf(p)).length;
+    const onBoard = me.left - inTray;
+    $('tray-title').textContent = me.left ? `내 조각 ${me.left}개` + (onBoard ? ` (판 위 ${onBoard})` : '') : '내 조각';
     const finishedMine = me.left === 0;
     $('tray-done').classList.toggle('hidden', !finishedMine || !!g.finishedAt);
     tray.classList.toggle('hidden', finishedMine);
@@ -247,10 +278,12 @@
   setInterval(tick, 500);
 
   // ---------- 누르기 / 두 번 눌러 돌리기 / 끌어 놓기 ----------
+  const pieceById = id => { const g = myGroup(); return g && g.pieces.find(x => x.id === id); };
+
   function onDown(e) {
     if (press || drag || !room || room.status !== 'playing') return;
     const wrap = e.currentTarget.parentNode, id = +wrap.dataset.id;
-    const p = myGroup().pieces.find(x => x.id === id);
+    const p = pieceById(id);
     if (!p || p.placed || p.owner !== pid) return;
     e.preventDefault();
     press = { id, wrap, x: e.clientX, y: e.clientY, pointerId: e.pointerId };
@@ -261,17 +294,20 @@
 
   function startDrag(e) {
     const { id, wrap } = press;
-    const p = myGroup().pieces.find(x => x.id === id);
+    const p = pieceById(id);
     const r = wrap.getBoundingClientRect();
-    const ph = el('div', 'slot-ph');
-    ph.style.width = ph.style.height = r.width + 'px';
-    wrap.replaceWith(ph);
+    let ph = null;
+    if (wrap.parentNode === $('tray')) {   // 쟁반에서 꺼낼 때만 빈자리 표시
+      ph = el('div', 'slot-ph');
+      ph.style.width = ph.style.height = r.width + 'px';
+      wrap.replaceWith(ph);
+    }
     document.body.append(wrap);
     wrap.classList.add('dragging');
     wrap.classList.remove('shake', 'pop');
     style(wrap, p, cell);
     const k = cell / r.width;
-    drag = { id, wrap, ph, dx: (press.x - r.left) * k, dy: (press.y - r.top) * k, pointerId: press.pointerId, waiting: false };
+    drag = { id, wrap, ph, dx: (press.x - r.left) * k, dy: (press.y - r.top) * k, pointerId: press.pointerId };
     moveTo(e.clientX, e.clientY);
   }
 
@@ -285,7 +321,7 @@
       if (Math.hypot(e.clientX - press.x, e.clientY - press.y) > 8) startDrag(e);
       return;
     }
-    if (drag && e.pointerId === drag.pointerId && !drag.waiting) moveTo(e.clientX, e.clientY);
+    if (drag && e.pointerId === drag.pointerId) moveTo(e.clientX, e.clientY);
   }
 
   function onUp(e) {
@@ -310,45 +346,63 @@
   }
 
   function rotate(id) {
-    const p = myGroup().pieces.find(x => x.id === id);
+    const p = pieceById(id);
     if (!p) return;
     p.rot = (p.rot + 1) % 4; // 바로 돌려 보이기
     const w = pieceEls.get(id);
-    if (w) style(w, p, trayCell());
+    if (w) style(w, p, posOf(p) ? cell : trayCell());
     sound.turn();
-    socket.emit('p:rotate', { pieceId: id });
+    socket.emit('p:rotate', { pieceId: id }, res => { if (res && res.placed) sound.good(); });
   }
 
-  function drop() {
-    const b = $('board').getBoundingClientRect(), r = drag.wrap.getBoundingClientRect();
-    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-    if (cx < b.left || cx > b.right || cy < b.top || cy > b.bottom) return endDrag(false);
-    const d = drag;
-    d.waiting = true;
-    socket.emit('p:place', { pieceId: d.id, x: (r.left - b.left) / b.width, y: (r.top - b.top) / b.height }, res => {
-      if (res.ok) {
+  function sendMove(id, pos) {
+    pending.set(id, pos);
+    socket.emit('p:move', { pieceId: id, x: pos ? pos.x : null, y: pos ? pos.y : null }, res => {
+      pending.delete(id);
+      if (!res || !res.ok) return room && render();
+      if (res.placed) {
         sound.good();
-        const w = pieceEls.get(d.id);
+        const w = pieceEls.get(id);
         if (w) { w.classList.remove('pop'); void w.offsetWidth; w.classList.add('pop'); }
-        return;
+      } else if (res.wrong === 'rot') {
+        sound.wrong();
+        toast('자리는 맞았어요! 두 번 눌러서 방향을 돌려 보세요 🔄');
       }
-      if (drag === d) endDrag(true);
-      sound.wrong();
-      if (res.wrong === 'rot') toast('자리는 맞았어요! 두 번 눌러서 방향을 돌려 보세요 🔄');
-      else if (res.wrong) toast('앗, 거기가 아니에요! 다시 해 봐요');
     });
   }
 
-  function endDrag(shake) {
+  function drop() {
+    const d = drag, p = pieceById(d.id);
+    const b = $('board').getBoundingClientRect(), r = d.wrap.getBoundingClientRect();
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const onBoard = cx > b.left && cx < b.right && cy > b.top && cy < b.bottom;
+    if (!onBoard) {
+      // 판 밖에 놓으면 쟁반으로 되돌림
+      const wasOnBoard = !!posOf(p);
+      endDrag();
+      if (wasOnBoard) { sendMove(d.id, null); render(); }
+      return;
+    }
+    const pos = { x: (r.left - b.left) / b.width, y: (r.top - b.top) / b.height };
+    drag = null;
+    d.wrap.classList.remove('dragging');
+    if (d.ph) d.ph.remove();
+    sendMove(d.id, pos);
+    putLoose(d.wrap, pos);
+    render();
+  }
+
+  // 끌던 조각을 원래 있던 곳(쟁반 빈자리 또는 판 위 자리)으로 돌려놓음
+  function endDrag() {
     const d = drag;
     if (!d) return;
     drag = null;
     d.wrap.classList.remove('dragging');
     d.wrap.style.left = d.wrap.style.top = '';
-    const g = myGroup(), p = g && g.pieces.find(x => x.id === d.id);
-    if (p && !p.placed) style(d.wrap, p, trayCell());
-    if (d.ph.isConnected) d.ph.replaceWith(d.wrap); else d.wrap.remove();
-    if (shake) { void d.wrap.offsetWidth; d.wrap.classList.add('shake'); }
+    if (d.ph && d.ph.isConnected) d.ph.replaceWith(d.wrap);
+    else if (!d.ph) d.wrap.remove(), pieceEls.delete(d.id);
+    else d.wrap.remove();
+    if (room && myGroup()) renderGame();
   }
 
   window.addEventListener('resize', () => { if (room && myGroup() && room.status !== 'lobby' && img && layout()) renderGame(); });

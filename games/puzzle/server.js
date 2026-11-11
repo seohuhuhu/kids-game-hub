@@ -9,6 +9,7 @@ const LIMITS = { minGrid: 2, maxGrid: 8, minGroups: 1, maxGroups: 10, maxPlayers
 const SHAPES = ['square', 'triangle', 'mixed'];
 const SNAP_DISTANCE = 0.45;           // 정답 칸에서 이 거리(칸 단위) 안이면 정답
 const MAX_IMAGE_LENGTH = 6_000_000;
+const MAX_LIBRARY = 12;              // 방마다 임시로 보관하는 올린 사진 수
 
 const shuffle = arr => {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -27,6 +28,7 @@ function buildPieces(rows, cols, shape) {
   let id = 0;
   const add = (row, col, kind) => pieces.push({
     id: id++, row, col, kind, rot: Math.floor(Math.random() * 4), owner: null, placed: false, placedBy: null,
+    pos: null, // 판 위에 올려 둔 위치 {x,y} (판 기준 0~1), 쟁반에 있으면 null
   });
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < cols; col++) {
@@ -69,12 +71,40 @@ module.exports = function registerPuzzle(nsp) {
       startedAt: room.startedAt,
       serverNow: Date.now(),
       players,
+      imageId: room.imageId,
       groups: room.groups.map((g, i) => ({
-        index: i, name: `${i + 1}그룹`, active: g.active,
+        index: i, name: groupName(room, i), active: g.active,
         pieces: g.pieces, total: g.pieces.length, placed: g.pieces.filter(p => p.placed).length,
         finishedAt: g.finishedAt, rank: g.rank,
       })),
     };
+  }
+
+  const groupName = (room, i) => room.groupNames[i] || `${i + 1}그룹`;
+  const sendLibrary = room => nsp.to(room.code + ':admin').emit('library', {
+    current: room.imageId, items: room.library.map(({ id, thumb }) => ({ id, thumb })),
+  });
+
+  // 위치와 방향이 모두 맞으면 정답 처리. 결과: 'placed' | 'rot'(자리는 맞고 방향이 틀림) | null
+  function tryPlace(room, g, piece, pid) {
+    if (!piece.pos) return null;
+    const { rows, cols } = room.settings;
+    const dist = Math.hypot(piece.pos.x * cols - piece.col, piece.pos.y * rows - piece.row);
+    if (!(dist < SNAP_DISTANCE)) return null;
+    if (piece.rot !== 0) return 'rot';
+    piece.placed = true;
+    piece.placedBy = pid;
+    piece.pos = null;
+    const groupIdx = room.groups.indexOf(g);
+    let groupDone = false;
+    if (g.pieces.every(p => p.placed)) {
+      g.finishedAt = Date.now();
+      g.rank = room.groups.filter(x => x.finishedAt).length;
+      groupDone = true;
+      if (room.groups.filter(x => x.active).every(x => x.finishedAt)) room.status = 'done';
+    }
+    nsp.to(room.code).emit('placed', { group: groupIdx, pieceId: piece.id, by: pid, groupDone, rank: g.rank });
+    return 'placed';
   }
 
   const broadcast = room => nsp.to(room.code).emit('state', publicState(room));
@@ -83,6 +113,7 @@ module.exports = function registerPuzzle(nsp) {
     const n = room.settings.groups;
     while (room.groups.length < n) room.groups.push({ active: false, pieces: [], finishedAt: null, rank: null });
     room.groups.length = n;
+    room.groupNames.length = Math.max(room.groupNames.length, n);
     for (const p of room.players.values()) if (p.group != null && p.group >= n) p.group = null;
   }
 
@@ -98,6 +129,7 @@ module.exports = function registerPuzzle(nsp) {
     for (const piece of g.pieces.filter(p => p.owner === fromPid && !p.placed)) {
       const target = pool.reduce((a, b) => (load.get(a) <= load.get(b) ? a : b));
       piece.owner = target;
+      piece.pos = null;
       load.set(target, load.get(target) + 1);
     }
   }
@@ -120,7 +152,9 @@ module.exports = function registerPuzzle(nsp) {
       if (adminRoom) socket.leave(adminRoom.code);
       adminRoom = r;
       socket.join(r.code);
+      socket.join(r.code + ':admin');
       if (r.image) socket.emit('image', r.image);
+      sendLibrary(r);
       broadcast(r);
     }
 
@@ -129,8 +163,8 @@ module.exports = function registerPuzzle(nsp) {
       const code = newCode();
       const r = {
         code, adminKey: crypto.randomBytes(16).toString('hex'),
-        status: 'lobby', settings: { groups: 4, rows: 4, cols: 4, shape: 'square' },
-        image: null, hint: false, players: new Map(), groups: [], startedAt: null, createdAt: Date.now(),
+        status: 'lobby', settings: { groups: 4, rows: 4, cols: 4, shape: 'square', opacity: 0.5 },
+        groupNames: [], library: [], imageId: null, image: null, hint: false, players: new Map(), groups: [], startedAt: null, createdAt: Date.now(),
       };
       resizeGroups(r);
       rooms.set(code, r);
@@ -150,8 +184,12 @@ module.exports = function registerPuzzle(nsp) {
     const adminOk = () => isAdmin && adminRoom && rooms.get(adminRoom.code) === adminRoom;
 
     socket.on('admin:settings', (s = {}) => {
-      if (!adminOk() || adminRoom.status !== 'lobby') return;
+      if (!adminOk()) return;
       const st = adminRoom.settings;
+      // 친구 조각 투명도는 게임 중에도 바꿀 수 있음
+      const op = Number(s.opacity);
+      if (s.opacity != null && op >= 0.1 && op <= 1) st.opacity = Math.round(op * 100) / 100;
+      if (adminRoom.status !== 'lobby') return broadcast(adminRoom);
       if (intIn(s.rows, LIMITS.minGrid, LIMITS.maxGrid)) st.rows = +s.rows;
       if (intIn(s.cols, LIMITS.minGrid, LIMITS.maxGrid)) st.cols = +s.cols;
       if (intIn(s.groups, LIMITS.minGroups, LIMITS.maxGroups)) { st.groups = +s.groups; resizeGroups(adminRoom); }
@@ -159,15 +197,52 @@ module.exports = function registerPuzzle(nsp) {
       broadcast(adminRoom);
     });
 
-    socket.on('admin:image', (dataUrl, cb) => {
-      if (!adminOk() || adminRoom.status !== 'lobby') return reply(cb, { ok: false });
-      if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/') || dataUrl.length > MAX_IMAGE_LENGTH) {
-        return reply(cb, { ok: false, error: '사진이 너무 크거나 올바르지 않아요.' });
-      }
-      adminRoom.image = dataUrl;
-      nsp.to(adminRoom.code).emit('image', dataUrl);
-      reply(cb, { ok: true });
+    socket.on('admin:rename', ({ group, name } = {}) => {
+      if (!adminOk() || !intIn(group, 0, adminRoom.settings.groups - 1)) return;
+      adminRoom.groupNames[+group] = cleanName(name) || null;
       broadcast(adminRoom);
+    });
+
+    const isImage = d => typeof d === 'string' && d.startsWith('data:image/') && d.length <= MAX_IMAGE_LENGTH;
+    function setImage(r, dataUrl, id) {
+      r.image = dataUrl;
+      r.imageId = id;
+      nsp.to(r.code).emit('image', dataUrl);
+      sendLibrary(r);
+      broadcast(r);
+    }
+
+    // 사진 정하기. 직접 올린 사진(save=true)은 방의 사진 목록에 임시 보관해 다시 쓸 수 있음
+    socket.on('admin:image', (data, cb) => {
+      if (!adminOk() || adminRoom.status !== 'lobby') return reply(cb, { ok: false });
+      const { dataUrl, thumb, save } = typeof data === 'string' ? { dataUrl: data } : (data || {});
+      if (!isImage(dataUrl) || (thumb != null && !isImage(thumb))) return reply(cb, { ok: false, error: '사진이 너무 크거나 올바르지 않아요.' });
+      const r = adminRoom;
+      let id = null;
+      if (save) {
+        const same = r.library.find(x => x.dataUrl === dataUrl);
+        id = same ? same.id : crypto.randomBytes(6).toString('hex');
+        if (!same) {
+          r.library.unshift({ id, dataUrl, thumb: thumb || dataUrl });
+          r.library.length = Math.min(r.library.length, MAX_LIBRARY);
+        }
+      }
+      reply(cb, { ok: true, id });
+      setImage(r, dataUrl, id);
+    });
+
+    socket.on('admin:useImage', ({ id } = {}, cb) => {
+      if (!adminOk() || adminRoom.status !== 'lobby') return reply(cb, { ok: false });
+      const item = adminRoom.library.find(x => x.id === id);
+      if (!item) return reply(cb, { ok: false, error: '없는 사진이에요.' });
+      reply(cb, { ok: true });
+      setImage(adminRoom, item.dataUrl, item.id);
+    });
+
+    socket.on('admin:deleteImage', ({ id } = {}) => {
+      if (!adminOk()) return;
+      adminRoom.library = adminRoom.library.filter(x => x.id !== id);
+      sendLibrary(adminRoom);
     });
 
     socket.on('admin:move', ({ pid: target, group } = {}) => {
@@ -292,35 +367,30 @@ module.exports = function registerPuzzle(nsp) {
       return piece && !piece.placed && piece.owner === pid ? { g, piece } : null;
     };
 
+    // 두 번 눌러 돌리기. 판 위 정답 자리에 있던 조각이 바른 방향이 되면 바로 맞춰짐
     socket.on('p:rotate', ({ pieceId } = {}, cb) => {
       const found = myPiece(pieceId);
       if (!found) return reply(cb, { ok: false });
       found.piece.rot = (found.piece.rot + 1) % 4;
-      reply(cb, { ok: true, rot: found.piece.rot });
+      const result = tryPlace(room, found.g, found.piece, pid);
+      reply(cb, { ok: true, rot: found.piece.rot, placed: result === 'placed' });
       broadcast(room);
     });
 
-    socket.on('p:place', ({ pieceId, x, y } = {}, cb) => {
+    // 조각을 판 위 아무 곳에 올려 두기 (같은 그룹 친구에게 보임). x,y = null 이면 쟁반으로 되돌림
+    socket.on('p:move', ({ pieceId, x, y } = {}, cb) => {
       const found = myPiece(pieceId);
       if (!found) return reply(cb, { ok: false });
-      const { g, piece } = found;
-      const { rows, cols } = room.settings;
-      const dist = Math.hypot(Number(x) * cols - piece.col, Number(y) * rows - piece.row);
-      if (!(dist < SNAP_DISTANCE)) return reply(cb, { ok: false, wrong: 'place' });
-      if (piece.rot !== 0) return reply(cb, { ok: false, wrong: 'rot' });
-
-      piece.placed = true;
-      piece.placedBy = pid;
-      const groupIdx = room.groups.indexOf(g);
-      let groupDone = false;
-      if (g.pieces.every(p => p.placed)) {
-        g.finishedAt = Date.now();
-        g.rank = room.groups.filter(x => x.finishedAt).length;
-        groupDone = true;
-        if (room.groups.filter(x => x.active).every(x => x.finishedAt)) room.status = 'done';
+      const { piece, g } = found;
+      if (x == null || y == null) {
+        piece.pos = null;
+      } else {
+        const nx = Number(x), ny = Number(y);
+        if (!Number.isFinite(nx) || !Number.isFinite(ny)) return reply(cb, { ok: false });
+        piece.pos = { x: Math.min(1, Math.max(-0.2, nx)), y: Math.min(1, Math.max(-0.2, ny)) };
       }
-      nsp.to(room.code).emit('placed', { group: groupIdx, pieceId, by: pid, groupDone, rank: g.rank });
-      reply(cb, { ok: true });
+      const result = tryPlace(room, g, piece, pid);
+      reply(cb, { ok: true, placed: result === 'placed', wrong: result === 'rot' ? 'rot' : undefined });
       broadcast(room);
     });
 

@@ -68,6 +68,10 @@
             <span>그룹 수</span>
             <div class="stepper"><button id="g-minus">−</button><b id="g-count"></b><button id="g-plus">+</button></div>
           </div>
+          <div class="field">
+            <span>친구 조각 투명도</span>
+            <div class="opacity"><input type="range" id="opacity" min="10" max="100" step="5"><b id="opacity-val"></b></div>
+          </div>
           <div class="field col">
             <span>퍼즐 사진</span>
             <div class="photo">
@@ -77,6 +81,8 @@
                 <div class="presets" id="presets"></div>
               </div>
             </div>
+            <div class="library-head"><span>올린 사진</span><span class="muted small">이 방에 임시로 보관돼요 (최대 12장)</span></div>
+            <div class="library" id="library"><span class="muted small">아직 올린 사진이 없어요</span></div>
           </div>
           <div class="info" id="piece-info"></div>
         </div>
@@ -102,6 +108,7 @@
         <span class="pill big">⏱ <b id="timer">0:00</b></span>
         <button class="hint-btn" id="btn-hint">💡 전체 힌트 보여주기</button>
         <div class="grow"></div>
+        <label class="pill opacity-pill">친구 조각 투명도 <input type="range" id="opacity2" min="10" max="100" step="5"><b id="opacity2-val"></b></label>
         <label class="pill sound"><input type="checkbox" id="sound-on" checked> 🔔 소리</label>
         <button class="btn dark" id="btn-reset">다음 판 준비</button>
       </div>
