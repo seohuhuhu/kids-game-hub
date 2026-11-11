@@ -126,3 +126,8 @@ select { font-family: inherit; font-size: 16px; padding: 7px 8px; border-radius:
 .fit-btn { font-family: inherit; font-weight: 900; font-size: 15px; border: 1.5px solid #22C1D6; background: #fff; color: var(--ink); border-radius: 10px; padding: 6px 10px; cursor: pointer; }
 .fit-btn small { font-weight: 500; color: var(--sub); font-size: 12px; }
 .fit-btn:hover { background: #ECFEFF; }
+
+/* 사진 크게 보기 */
+.photo-overlay { background: rgba(17,20,24,.82); }
+.photo-big-wrap { display: flex; flex-direction: column; align-items: center; gap: 16px; animation: rise .3s; }
+.photo-big { background: center/cover no-repeat #fff; border-radius: 10px; box-shadow: 0 0 0 6px #fff, 0 0 0 9px var(--cyan), 0 20px 60px rgba(0,0,0,.5); }

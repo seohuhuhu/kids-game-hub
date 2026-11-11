@@ -69,6 +69,26 @@
   }
   $('btn-qr').onclick = () => { $('qr-big-code').textContent = room.code; $('qr-overlay').classList.remove('hidden'); };
   $('btn-qr-close').onclick = () => $('qr-overlay').classList.add('hidden');
+
+  // 퍼즐로 맞출 사진(판에 쓰이는 영역)을 화면 가득 크게 보여주기
+  function sizePhoto() {
+    const { rows, cols } = room.settings, box = $('photo-big');
+    const maxW = window.innerWidth * 0.92, maxH = window.innerHeight * 0.84;
+    const w = Math.min(maxW, maxH * cols / rows);
+    box.style.width = w + 'px';
+    box.style.height = w * rows / cols + 'px';
+  }
+  $('btn-photo').onclick = () => {
+    if (!img) return;
+    $('photo-big').style.backgroundImage = `url(${img.url})`;
+    sizePhoto();
+    $('photo-overlay').classList.remove('hidden');
+  };
+  const closePhoto = () => $('photo-overlay').classList.add('hidden');
+  $('btn-photo-close').onclick = closePhoto;
+  $('photo-overlay').onclick = e => { if (e.target === $('photo-overlay')) closePhoto(); };
+  window.addEventListener('keydown', e => { if (e.key === 'Escape') { closePhoto(); $('qr-overlay').classList.add('hidden'); } });
+  window.addEventListener('resize', () => { if (room && !$('photo-overlay').classList.contains('hidden')) sizePhoto(); });
   $('btn-copy').onclick = async () => {
     try { await navigator.clipboard.writeText(joinUrl); toast('링크를 복사했어요'); } catch { toast(joinUrl); }
   };
@@ -391,6 +411,7 @@
     $('top-status').textContent = { lobby: '🟢 대기 중', playing: '🧩 게임 중', done: '🏆 끝' }[room.status];
     loadQr();
     showOpacity();
+    $('btn-photo').disabled = !img;
     if (library.current !== room.imageId) { library.current = room.imageId; renderLibrary(); }
     const lobby = room.status === 'lobby';
     $('v-lobby').classList.toggle('hidden', !lobby);

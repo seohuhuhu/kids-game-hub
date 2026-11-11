@@ -35,6 +35,7 @@
       <div class="pill code-pill">입장 코드 <b id="top-code"></b></div>
       <div class="pill" id="top-status"></div>
       <div class="grow"></div>
+      <button class="btn" id="btn-photo" disabled>🖼 사진 크게 보기</button>
       <button class="btn" id="btn-qr">📱 QR 크게 보기</button>
       <button class="btn danger" id="btn-close">방 닫기</button>
     </header>
@@ -124,6 +125,14 @@
       <div class="qr big" id="qr-big"></div>
       <div class="big-code" id="qr-big-code"></div>
       <button class="btn" id="btn-qr-close">닫기</button>
+    </div>
+  </div>
+
+  <!-- 퍼즐 사진 크게 보기 -->
+  <div class="overlay photo-overlay hidden" id="photo-overlay">
+    <div class="photo-big-wrap">
+      <div class="photo-big" id="photo-big"></div>
+      <button class="btn" id="btn-photo-close">닫기</button>
     </div>
   </div>
 
