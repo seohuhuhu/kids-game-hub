@@ -364,9 +364,6 @@
         sound.good();
         const w = pieceEls.get(id);
         if (w) { w.classList.remove('pop'); void w.offsetWidth; w.classList.add('pop'); }
-      } else if (res.wrong === 'rot') {
-        sound.wrong();
-        toast('자리는 맞았어요! 두 번 눌러서 방향을 돌려 보세요 🔄');
       }
     });
   }
