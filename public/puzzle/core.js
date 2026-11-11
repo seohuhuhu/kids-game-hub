@@ -157,5 +157,22 @@ window.PZ = (() => {
     del(k) { try { localStorage.removeItem(k); } catch {} },
   };
 
-  return { CLIP, SHAPE_NAME, $, el, toast, loadImage, cover, makePiece, stylePiece, drawGuides, fileToDataUrl, sound, confetti, fmtTime, store };
+  // 서버가 보낸 조각 변경분을 방 상태에 반영하고 진행 수를 다시 셈
+  function applyPiece(room, d) {
+    const g = room && room.groups[d.g];
+    const piece = g && g.pieces.find(p => p.id === d.p.id);
+    if (!piece) return false;
+    Object.assign(piece, d.p);
+    g.placed = g.pieces.filter(p => p.placed).length;
+    room.players.forEach(pl => {
+      if (pl.group !== d.g) return;
+      const mine = g.pieces.filter(p => p.owner === pl.pid);
+      pl.assigned = mine.length;
+      pl.left = mine.filter(p => !p.placed).length;
+      pl.placed = g.pieces.filter(p => p.placedBy === pl.pid).length;
+    });
+    return true;
+  }
+
+  return { applyPiece, CLIP, SHAPE_NAME, $, el, toast, loadImage, cover, makePiece, stylePiece, drawGuides, fileToDataUrl, sound, confetti, fmtTime, store };
 })();

@@ -378,7 +378,8 @@
   setInterval(tick, 500);
 
   // ---------- 서버 이벤트 ----------
-  socket.on('image', dataUrl => {
+  socket.on('image', d => {
+    const dataUrl = typeof d === 'string' ? d : d.dataUrl;
     PZ.loadImage(dataUrl).then(i => { if (img) URL.revokeObjectURL(img.url); img = i; if (room) render(); });
   });
 
@@ -393,6 +394,15 @@
     } else {
       sound.ding();
     }
+  });
+
+  // 조각 변경분: 화면은 한 프레임에 한 번만 다시 그림
+  let raf = null;
+  const later = () => { if (!raf) raf = requestAnimationFrame(() => { raf = null; render(); }); };
+  socket.on('piece', d => { if (PZ.applyPiece(room, d)) later(); });
+  socket.on('presence', ({ pid, online }) => {
+    const p = room && room.players.find(x => x.pid === pid);
+    if (p) { p.online = online; later(); }
   });
 
   socket.on('state', s => {

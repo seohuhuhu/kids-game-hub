@@ -51,7 +51,7 @@
   $('btn-back-code').onclick = () => show('code');
 
   function join(name, pin, silent) {
-    socket.emit('p:join', { code, name, pin }, res => {
+    socket.emit('p:join', { code, name, pin, imageVer: img ? imageVer : null }, res => {
       if (!res.ok) {
         if (silent) { store.del(SESSION_KEY); show('code'); }
         return toast(res.error);
@@ -405,9 +405,18 @@
   window.addEventListener('resize', () => { if (room && myGroup() && room.status !== 'lobby' && img && layout()) renderGame(); });
 
   // ---------- 서버 이벤트 ----------
-  socket.on('image', dataUrl => {
+  let imageVer = null;
+  socket.on('image', d => {
+    const dataUrl = typeof d === 'string' ? d : d.dataUrl;
+    imageVer = d.ver;
     PZ.loadImage(dataUrl).then(i => { if (img) URL.revokeObjectURL(img.url); img = i; if (room) render(); });
   });
+  socket.on('presence', ({ pid: who, online }) => {
+    const p = room && room.players.find(x => x.pid === who);
+    if (p) { p.online = online; render(); }
+  });
+
+  socket.on('piece', d => { if (PZ.applyPiece(room, d)) render(); });
 
   socket.on('state', s => {
     room = s;

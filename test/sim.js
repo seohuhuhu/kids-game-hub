@@ -12,6 +12,10 @@ const ok = (cond, msg) => { assert.ok(cond, msg); passed++; console.log('  ✔',
 (async () => {
   const admin = connect();
   let st; admin.on('state', s => { st = s; });
+  const applyDelta = d => { const p = st && st.groups[d.g] && st.groups[d.g].pieces.find(x => x.id === d.p.id); if (p) Object.assign(p, d.p); };
+  admin.on('piece', applyDelta);
+  const applyPresence = d => { const p = st && st.players.find(x => x.pid === d.pid); if (p) p.online = d.online; };
+  admin.on('presence', applyPresence);
   const dings = []; admin.on('placed', e => dings.push(e));
 
   ok(!(await emit(admin, 'admin:create')).ok, '로그인 전에는 방을 만들 수 없음');
@@ -102,8 +106,13 @@ const ok = (cond, msg) => { assert.ok(cond, msg); passed++; console.log('  ✔',
   ps[sj] = connect();
   const back = await emit(ps[sj], 'p:join', { code, name: '서준', pin: '1100' });
   ok(back.ok && back.rejoined && back.pid === pids[sj], '같은 이름+비밀번호로 다시 들어옴');
+  await wait(80);
+  ok(st.players.find(p => p.name === '서준').online, '다시 들어오면 관리자 화면에 접속 표시');
   await wait(100);
   ok(st.players.find(p => p.name === '서준').assigned === before, '돌아오면 내 조각 그대로');
+  let seenOther = null; ps[sj].once('state', s => { seenOther = s; });
+  admin.emit('admin:hint', { on: false }); await wait(100);
+  ok(seenOther && seenOther.groups[1].pieces.length === 0 && seenOther.groups[0].pieces.length > 0, '플레이어는 자기 그룹 조각만 받음 (데이터 절약)');
 
   // 관리자가 하윤을 내보내면 조각이 그룹 안에서 다시 나눠짐
   const hy = names.indexOf('하윤');
@@ -128,7 +137,7 @@ const ok = (cond, msg) => { assert.ok(cond, msg); passed++; console.log('  ✔',
 
   // 관리자 새로고침 후 복구, 다음 판
   admin.disconnect();
-  const admin2 = connect(); admin2.on('state', s => { st = s; });
+  const admin2 = connect(); admin2.on('state', s => { st = s; }); admin2.on('piece', applyDelta); admin2.on('presence', applyPresence);
   ok((await emit(admin2, 'admin:resume', { code, adminKey })).ok, '관리자 새로고침 후 방 이어서 관리');
   admin2.emit('admin:reset'); await wait(100);
   ok(st.status === 'lobby' && st.players.length === 6 && st.players.find(p => p.name === '서준').group === 0, '다음 판: 대기실로, 그룹 유지');

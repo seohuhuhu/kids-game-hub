@@ -19,6 +19,7 @@ QR을 찍은 휴대폰이 어디서든 들어오려면 인터넷 주소가 필�
 npm install
 npm start          # http://localhost:3000
 npm test           # 서버 시나리오 테스트 (서버가 켜져 있어야 함)
+node test/load.js 50 8 5 7 mixed   # 부하 테스트: 50명·8그룹·5×7 퍼즐
 ```
 
 PC에서 localhost로 열어도 QR에는 PC의 내부 IP가 자동으로 들어가므로, 같은 와이파이의 휴대폰은 QR만 찍으면 됩니다. 주소를 직접 정하려면 `PUBLIC_URL=https://내주소 npm start`.
@@ -51,7 +52,8 @@ public/index.html         게임 허브(메인 화면)
 public/puzzle/index.html  플레이어 화면 (player.js, player.css)
 public/puzzle/admin.html  관리자 화면 (admin.js, admin.css)
 public/puzzle/core.js     조각 그리기·소리 등 공통 도구, theme.css 공통 디자인
-test/sim.js               서버 시나리오 테스트 47개
+test/sim.js               서버 시나리오 테스트 49개
+test/load.js              동시 접속 부하 테스트
 ```
 
 ## 두 번째 게임 추가하기

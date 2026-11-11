@@ -52,7 +52,8 @@ module.exports = function registerPuzzle(nsp) {
     return c;
   };
 
-  function publicState(room) {
+  // view: 'admin' = 모든 그룹 조각, 숫자 = 그 그룹 조각만, 'none' = 조각 없음 (데이터 양을 줄이기 위해)
+  function publicState(room, view = 'admin') {
     const players = [...room.players.values()].map(p => {
       const g = p.group != null ? room.groups[p.group] : null;
       const mine = g ? g.pieces.filter(x => x.owner === p.pid) : [];
@@ -72,9 +73,10 @@ module.exports = function registerPuzzle(nsp) {
       serverNow: Date.now(),
       players,
       imageId: room.imageId,
+      imageVer: room.imageVer,
       groups: room.groups.map((g, i) => ({
         index: i, name: groupName(room, i), active: g.active,
-        pieces: g.pieces, total: g.pieces.length, placed: g.pieces.filter(p => p.placed).length,
+        pieces: view === 'admin' || view === i ? g.pieces : [], total: g.pieces.length, placed: g.pieces.filter(p => p.placed).length,
         finishedAt: g.finishedAt, rank: g.rank,
       })),
     };
@@ -103,11 +105,41 @@ module.exports = function registerPuzzle(nsp) {
       groupDone = true;
       if (room.groups.filter(x => x.active).every(x => x.finishedAt)) room.status = 'done';
     }
-    nsp.to(room.code).emit('placed', { group: groupIdx, pieceId: piece.id, by: pid, groupDone, rank: g.rank });
+    toGroup(room, groupIdx, 'placed', { group: groupIdx, pieceId: piece.id, by: pid, groupDone, rank: g.rank });
     return 'placed';
   }
 
-  const broadcast = room => nsp.to(room.code).emit('state', publicState(room));
+  // 방에 접속한 소켓마다 볼 수 있는 범위: 관리자는 전체, 플레이어는 자기 그룹만
+  function viewOf(room, s) {
+    if (s.data.adminOf === room.code) return 'admin';
+    const p = s.data.pid && room.players.get(s.data.pid);
+    return p && p.group != null ? p.group : 'none';
+  }
+  function eachSocket(room, fn) {
+    const ids = nsp.adapter.rooms.get(room.code);
+    if (!ids) return;
+    for (const id of ids) { const s = nsp.sockets.get(id); if (s) fn(s, viewOf(room, s)); }
+  }
+  // 전체 상태: 참가·그룹 선택·시작처럼 구조가 바뀔 때만 보냄
+  function broadcast(room) {
+    const cache = new Map();
+    eachSocket(room, (s, v) => {
+      if (!cache.has(v)) cache.set(v, publicState(room, v));
+      s.emit('state', cache.get(v));
+    });
+  }
+  // 접속/끊김 표시만 가볍게 알림
+  const sendPresence = (room, pid, online, exceptId) =>
+    eachSocket(room, s => { if (s.id !== exceptId) s.emit('presence', { pid, online }); });
+  // 그 그룹 플레이어와 관리자에게만 보냄
+  const toGroup = (room, gi, ev, data) => eachSocket(room, (s, v) => { if (v === 'admin' || v === gi) s.emit(ev, data); });
+  // 조각 하나가 바뀌면 바뀐 조각만 보냄
+  function sendPiece(room, g, piece) {
+    if (g.finishedAt) return broadcast(room); // 그룹 완성·순위는 전체 상태로
+    const gi = room.groups.indexOf(g);
+    const { id, rot, pos, placed, placedBy, owner } = piece;
+    toGroup(room, gi, 'piece', { g: gi, p: { id, rot, pos, placed, placedBy, owner } });
+  }
 
   function resizeGroups(room) {
     const n = room.settings.groups;
@@ -151,9 +183,10 @@ module.exports = function registerPuzzle(nsp) {
     function attachAdmin(r) {
       if (adminRoom) socket.leave(adminRoom.code);
       adminRoom = r;
+      socket.data.adminOf = r.code;
       socket.join(r.code);
       socket.join(r.code + ':admin');
-      if (r.image) socket.emit('image', r.image);
+      if (r.image) socket.emit('image', { dataUrl: r.image, ver: r.imageVer });
       sendLibrary(r);
       broadcast(r);
     }
@@ -164,7 +197,7 @@ module.exports = function registerPuzzle(nsp) {
       const r = {
         code, adminKey: crypto.randomBytes(16).toString('hex'),
         status: 'lobby', settings: { groups: 4, rows: 4, cols: 4, shape: 'square', opacity: 0.5 },
-        groupNames: [], library: [], imageId: null, image: null, hint: false, players: new Map(), groups: [], startedAt: null, createdAt: Date.now(),
+        groupNames: [], library: [], imageId: null, image: null, imageVer: 0, hint: false, players: new Map(), groups: [], startedAt: null, createdAt: Date.now(),
       };
       resizeGroups(r);
       rooms.set(code, r);
@@ -207,7 +240,8 @@ module.exports = function registerPuzzle(nsp) {
     function setImage(r, dataUrl, id) {
       r.image = dataUrl;
       r.imageId = id;
-      nsp.to(r.code).emit('image', dataUrl);
+      r.imageVer++;
+      nsp.to(r.code).emit('image', { dataUrl, ver: r.imageVer });
       sendLibrary(r);
       broadcast(r);
     }
@@ -316,7 +350,7 @@ module.exports = function registerPuzzle(nsp) {
       reply(cb, r ? { ok: true, status: r.status } : { ok: false, error: '없는 입장 코드예요. 다시 확인해 주세요.' });
     });
 
-    socket.on('p:join', ({ code, name, pin } = {}, cb) => {
+    socket.on('p:join', ({ code, name, pin, imageVer } = {}, cb) => {
       const r = rooms.get(String(code || '').trim());
       if (!r) return reply(cb, { ok: false, error: '없는 입장 코드예요.' });
       const n = cleanName(name);
@@ -343,10 +377,18 @@ module.exports = function registerPuzzle(nsp) {
       room = r;
       pid = player.pid;
       player.socketId = socket.id;
+      socket.data.pid = player.pid;
       socket.join(r.code);
       reply(cb, { ok: true, pid, rejoined: !!existing, code: r.code });
-      if (r.image) socket.emit('image', r.image);
-      broadcast(r);
+      // 이미 받은 사진이면 다시 보내지 않음 (재접속 시 데이터 절약)
+      if (r.image && imageVer !== r.imageVer) socket.emit('image', { dataUrl: r.image, ver: r.imageVer });
+      if (existing && r.status !== 'lobby') {
+        // 게임 중 재접속: 본인에게만 전체 상태, 나머지에게는 접속 표시만
+        socket.emit('state', publicState(r, viewOf(r, socket)));
+        sendPresence(r, player.pid, true, socket.id);
+      } else {
+        broadcast(r);
+      }
     });
 
     socket.on('p:group', ({ group } = {}, cb) => {
@@ -374,7 +416,7 @@ module.exports = function registerPuzzle(nsp) {
       found.piece.rot = (found.piece.rot + 1) % 4;
       const result = tryPlace(room, found.g, found.piece, pid);
       reply(cb, { ok: true, rot: found.piece.rot, placed: result === 'placed' });
-      broadcast(room);
+      sendPiece(room, found.g, found.piece);
     });
 
     // 조각을 판 위 아무 곳에 올려 두기 (같은 그룹 친구에게 보임). x,y = null 이면 쟁반으로 되돌림
@@ -391,13 +433,19 @@ module.exports = function registerPuzzle(nsp) {
       }
       const result = tryPlace(room, g, piece, pid);
       reply(cb, { ok: true, placed: result === 'placed', wrong: result === 'rot' ? 'rot' : undefined });
-      broadcast(room);
+      sendPiece(room, g, piece);
     });
 
     function leavePlayer() {
       const p = me();
-      if (p && p.socketId === socket.id) p.socketId = null;
-      if (room) { socket.leave(room.code); broadcast(room); }
+      const active = p && p.socketId === socket.id;
+      if (active) p.socketId = null;
+      socket.data.pid = null;
+      if (room) {
+        socket.leave(room.code);
+        if (room.status !== 'lobby' && p) { if (active) sendPresence(room, p.pid, false); }
+        else broadcast(room);
+      }
       room = null;
       pid = null;
     }
