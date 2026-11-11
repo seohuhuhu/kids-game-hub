@@ -25,7 +25,7 @@
 .slot.filled { border-style: solid; border-color: var(--c, #9AA3AD); background: #fff; box-shadow: 0 3px 0 rgba(0,0,0,.08); }
 .slot.filled .word { font-size: 19px; font-weight: 900; }
 .slot.filled .who { position: absolute; top: 3px; right: 6px; font-size: 10px; font-weight: 700; color: #fff; background: var(--c, #9AA3AD); border-radius: 6px; padding: 0 5px; }
-.slot.mine { cursor: grab; }
+.slot.mine { cursor: grab; touch-action: none; } /* 휴대폰에서 칸의 내 블록을 끌 때 화면이 스크롤되지 않게 */
 .slot.locked { border-color: #22C55E; background: #ECFDF3; cursor: default; }
 .slot.locked .who { background: #22C55E; }
 .slot.locked::after { content: '✓'; position: absolute; bottom: 2px; right: 6px; font-size: 12px; font-weight: 900; color: #16A34A; }

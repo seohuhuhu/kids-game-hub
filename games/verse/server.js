@@ -142,9 +142,15 @@ module.exports = function registerVerse(nsp) {
     let pid = null;
     const reply = (cb, data) => typeof cb === 'function' && cb(data);
     const me = () => room && room.players.get(pid);
+    // 잘못된 메시지(null·문자열 등)가 와도 서버가 죽지 않도록 payload를 객체로 맞추고 오류를 가둔다
+    const on = (ev, fn) => socket.on(ev, (d, cb) => {
+      if (typeof d === 'function' && cb === undefined) { cb = d; d = undefined; }
+      try { fn(d && typeof d === 'object' ? d : {}, cb); }
+      catch (e) { console.error(`[verse] ${ev} 처리 오류:`, e.message); reply(cb, { ok: false }); }
+    });
 
     // ================= 관리자 =================
-    socket.on('admin:login', ({ password } = {}, cb) => {
+    on('admin:login', ({ password } = {}, cb) => {
       isAdmin = String(password || '') === ADMIN_PASSWORD;
       reply(cb, isAdmin ? { ok: true } : { ok: false, error: '관리자 비밀번호가 틀렸어요.' });
     });
@@ -159,7 +165,7 @@ module.exports = function registerVerse(nsp) {
       broadcast(r);
     }
 
-    socket.on('admin:create', (_, cb) => {
+    on('admin:create', (_, cb) => {
       if (!isAdmin) return reply(cb, { ok: false, error: '관리자만 방을 만들 수 있어요.' });
       const code = newCode();
       const r = {
@@ -175,7 +181,7 @@ module.exports = function registerVerse(nsp) {
       attachAdmin(r);
     });
 
-    socket.on('admin:resume', ({ code, adminKey } = {}, cb) => {
+    on('admin:resume', ({ code, adminKey } = {}, cb) => {
       const r = rooms.get(String(code));
       if (!r || r.adminKey !== adminKey) return reply(cb, { ok: false });
       isAdmin = true;
@@ -185,20 +191,20 @@ module.exports = function registerVerse(nsp) {
 
     const adminOk = () => isAdmin && adminRoom && rooms.get(adminRoom.code) === adminRoom;
 
-    socket.on('admin:settings', (s = {}) => {
+    on('admin:settings', (s = {}) => {
       if (!adminOk() || adminRoom.status !== 'lobby') return;
       if (intIn(s.groups, LIMITS.minGroups, LIMITS.maxGroups)) { adminRoom.settings.groups = +s.groups; resizeGroups(adminRoom); }
       broadcast(adminRoom);
     });
 
-    socket.on('admin:rename', ({ group, name } = {}) => {
+    on('admin:rename', ({ group, name } = {}) => {
       if (!adminOk() || !intIn(group, 0, adminRoom.settings.groups - 1)) return;
       adminRoom.groupNames[+group] = cleanName(name) || null;
       broadcast(adminRoom);
     });
 
     // 구절 목록 (방에 임시 보관)
-    socket.on('admin:addVerse', ({ text, ref } = {}, cb) => {
+    on('admin:addVerse', ({ text, ref } = {}, cb) => {
       if (!adminOk()) return reply(cb, { ok: false });
       const blocks = splitBlocks(text);
       if (!blocks.length) return reply(cb, { ok: false, error: '구절을 입력해 주세요.' });
@@ -219,7 +225,7 @@ module.exports = function registerVerse(nsp) {
       broadcast(r);
     });
 
-    socket.on('admin:deleteVerse', ({ id } = {}) => {
+    on('admin:deleteVerse', ({ id } = {}) => {
       if (!adminOk()) return;
       const r = adminRoom;
       r.verses = r.verses.filter(v => v.id !== id);
@@ -228,7 +234,7 @@ module.exports = function registerVerse(nsp) {
       broadcast(r);
     });
 
-    socket.on('admin:round', ({ verseId, mode } = {}) => {
+    on('admin:round', ({ verseId, mode } = {}) => {
       if (!adminOk() || adminRoom.status !== 'lobby') return;
       if (verseId !== undefined && adminRoom.verses.some(v => v.id === verseId)) adminRoom.round.verseId = verseId;
       if (MODES.includes(mode)) adminRoom.round.mode = mode;
@@ -236,7 +242,7 @@ module.exports = function registerVerse(nsp) {
       broadcast(adminRoom);
     });
 
-    socket.on('admin:move', ({ pid: target, group } = {}) => {
+    on('admin:move', ({ pid: target, group } = {}) => {
       if (!adminOk() || adminRoom.status !== 'lobby') return;
       const p = adminRoom.players.get(target);
       if (!p) return;
@@ -244,17 +250,24 @@ module.exports = function registerVerse(nsp) {
       broadcast(adminRoom);
     });
 
-    socket.on('admin:kick', ({ pid: target } = {}) => {
+    on('admin:kick', ({ pid: target } = {}) => {
       if (!adminOk()) return;
       const r = adminRoom, p = r.players.get(target);
       if (!p) return;
       if (r.status !== 'lobby' && p.group != null) redistribute(r, p.group, p.pid);
       r.players.delete(target);
+      // 그룹에 아무도 남지 않으면 그 그룹은 빼고, 남은 그룹이 모두 끝났으면 라운드 종료
+      if (r.status === 'playing' && p.group != null && ![...r.players.values()].some(x => x.group === p.group)) {
+        const g = r.groups[p.group];
+        if (g.active && !g.finishedAt) { g.active = false; g.blocks = []; }
+        const act = r.groups.filter(x => x.active);
+        if (act.length && act.every(x => x.finishedAt)) r.status = 'done';
+      }
       if (p.socketId) nsp.to(p.socketId).emit('kicked');
       broadcast(r);
     });
 
-    socket.on('admin:start', (_, cb) => {
+    on('admin:start', (_, cb) => {
       if (!adminOk() || adminRoom.status !== 'lobby') return reply(cb, { ok: false });
       const r = adminRoom, verse = currentVerse(r);
       if (!verse) return reply(cb, { ok: false, error: '먼저 구절을 추가하고 골라 주세요.' });
@@ -275,7 +288,7 @@ module.exports = function registerVerse(nsp) {
       broadcast(r);
     });
 
-    socket.on('admin:hint', (h = {}) => {
+    on('admin:hint', (h = {}) => {
       if (!adminOk() || adminRoom.status === 'lobby') return;
       if (typeof h.ref === 'boolean') adminRoom.hint.ref = h.ref;
       if (typeof h.first === 'boolean') adminRoom.hint.first = h.first;
@@ -283,7 +296,7 @@ module.exports = function registerVerse(nsp) {
     });
 
     // 다음 라운드: 플레이어·그룹·구절 목록은 그대로 두고 대기실로
-    socket.on('admin:reset', () => {
+    on('admin:reset', () => {
       if (!adminOk()) return;
       const r = adminRoom;
       r.status = 'lobby';
@@ -295,7 +308,7 @@ module.exports = function registerVerse(nsp) {
       broadcast(r);
     });
 
-    socket.on('admin:close', () => {
+    on('admin:close', () => {
       if (!adminOk()) return;
       nsp.to(adminRoom.code).emit('closed');
       rooms.delete(adminRoom.code);
@@ -304,12 +317,12 @@ module.exports = function registerVerse(nsp) {
     });
 
     // ================= 플레이어 =================
-    socket.on('p:check', ({ code } = {}, cb) => {
+    on('p:check', ({ code } = {}, cb) => {
       const r = rooms.get(String(code || '').trim());
       reply(cb, r ? { ok: true, status: r.status } : { ok: false, error: '없는 입장 코드예요. 다시 확인해 주세요.' });
     });
 
-    socket.on('p:join', ({ code, name, pin } = {}, cb) => {
+    on('p:join', ({ code, name, pin } = {}, cb) => {
       const r = rooms.get(String(code || '').trim());
       if (!r) return reply(cb, { ok: false, error: '없는 입장 코드예요.' });
       const n = cleanName(name);
@@ -347,7 +360,7 @@ module.exports = function registerVerse(nsp) {
       }
     });
 
-    socket.on('p:group', ({ group } = {}, cb) => {
+    on('p:group', ({ group } = {}, cb) => {
       const p = me();
       if (!p || room.status !== 'lobby') return reply(cb, { ok: false, error: '지금은 그룹을 고를 수 없어요.' });
       if (p.group != null) return reply(cb, { ok: false, error: '이미 그룹을 정했어요.' });
@@ -367,7 +380,7 @@ module.exports = function registerVerse(nsp) {
       return b && b.owner === pid ? { g, gi: p.group, b } : null;
     };
 
-    socket.on('p:place', ({ blockId, slot } = {}, cb) => {
+    on('p:place', ({ blockId, slot } = {}, cb) => {
       const f = myBlock(blockId);
       if (!f || f.b.locked) return reply(cb, { ok: false });
       const answer = answerOf(room);
@@ -381,7 +394,7 @@ module.exports = function registerVerse(nsp) {
       sendBlock(room, f.gi, f.b);
     });
 
-    socket.on('p:unplace', ({ blockId } = {}, cb) => {
+    on('p:unplace', ({ blockId } = {}, cb) => {
       const f = myBlock(blockId);
       if (!f || f.b.locked || f.b.slot == null) return reply(cb, { ok: false });
       f.b.slot = null;
@@ -390,7 +403,7 @@ module.exports = function registerVerse(nsp) {
     });
 
     // B 방식: 모든 칸이 차면 그룹 누구나 제출
-    socket.on('p:submit', (_, cb) => {
+    on('p:submit', (_, cb) => {
       const p = me();
       if (!p || room.status !== 'playing' || room.round.mode !== 'submit' || p.group == null) return reply(cb, { ok: false });
       const gi = p.group, g = room.groups[gi];
@@ -426,7 +439,7 @@ module.exports = function registerVerse(nsp) {
       pid = null;
     }
 
-    socket.on('p:leave', () => {
+    on('p:leave', () => {
       const p = me();
       if (p && room.status === 'lobby') room.players.delete(pid);
       leavePlayer();

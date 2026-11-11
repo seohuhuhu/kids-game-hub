@@ -45,6 +45,9 @@ app.get('/api/qr', async (req, res) => {
 registerPuzzle(io.of('/puzzle'));
 registerVerse(io.of('/verse'));
 
+// 한 게임의 처리 오류로 서버 전체(다른 게임의 방까지)가 꺼지지 않도록 기록만 하고 계속 실행
+process.on('uncaughtException', e => console.error('처리되지 않은 오류:', e));
+
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`🎮 게임 허브 실행 중: http://localhost:${PORT}`);

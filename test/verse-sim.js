@@ -155,6 +155,35 @@ function client() {
   await wait(100);
   ok(sub2.ok && sub2.correct && A.st.groups[0].finishedAt && b0().every(b => b.locked), 'B 방식 모두 맞으면 완성');
 
+  // 잘못된 메시지(null)를 보내도 서버가 죽지 않음 (퍼즐까지 함께 꺼지는 것 방지)
+  const bad = client();
+  for (const ev of ['p:place', 'p:join', 'p:check', 'p:group', 'p:unplace', 'admin:login', 'admin:settings', 'admin:hint', 'admin:addVerse']) bad.s.emit(ev, null);
+  await wait(300);
+  const alive = client();
+  ok((await emit(alive.s, 'p:check', { code })).ok, '잘못된 메시지(null)에도 서버 유지');
+  const pz = io(URL.replace('/verse', '/puzzle'), { forceNew: true, transports: ['websocket'] });
+  pz.emit('p:move', null); pz.emit('admin:settings', null);
+  await wait(300);
+  const pz2 = io(URL.replace('/verse', '/puzzle'), { forceNew: true, transports: ['websocket'] });
+  ok((await Promise.race([emit(pz2, 'p:check', { code: '0000' }), wait(2000).then(() => null)])) !== null, '퍼즐에 잘못된 메시지가 와도 서버(두 게임 모두) 유지');
+
+  // 그룹의 마지막 멤버를 내보내면 그 그룹은 빠지고 라운드가 끝날 수 있음
+  A.s.emit('admin:reset'); await wait(100);
+  A.s.emit('admin:round', { verseId: v1.id, mode: 'instant' }); await wait(60);
+  await emit(A.s, 'admin:start'); await wait(150);
+  const solo = A.st.groups.findIndex((g, i) => g.active && A.st.players.filter(p => p.group === i).length === 4 ? false : g.active);
+  // 1그룹 멤버 전원 내보내기
+  for (const p of A.st.players.filter(x => x.group === 1)) A.s.emit('admin:kick', { pid: p.pid });
+  await wait(150);
+  ok(!A.st.groups[1].active, '마지막 멤버를 내보낸 그룹은 비활성');
+  for (const b of A.st.groups[0].blocks.filter(x => !x.locked)) {
+    const slot = answer.findIndex((w, i) => w === b.text && !A.st.groups[0].blocks.some(x => x.slot === i));
+    await emit(sockOf(b.owner).s, 'p:place', { blockId: b.id, slot });
+    await wait(30);
+  }
+  await wait(150);
+  ok(A.st.status === 'done', '남은 그룹이 모두 끝나면 라운드 종료');
+
   // 관리자 새로고침
   A.s.disconnect();
   const A2 = client();

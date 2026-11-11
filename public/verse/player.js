@@ -267,9 +267,20 @@
     const s = slotFromPoint(e.clientX, e.clientY);
     if (s && !s.classList.contains('filled')) place(d.id, +s.dataset.slot);
     else if (!s && d.from === 'slot') unplace(d.id); // 칸 밖에 놓으면 내 블록으로
+    render(); // 끄는 동안 미뤄 둔 친구들의 변경을 화면에 반영
+  };
+  // 스크롤 등으로 브라우저가 누르기를 취소하면 아무것도 바꾸지 않고 원래대로
+  const cancelPress = e => {
+    if (!press || e.pointerId !== press.pointerId) return;
+    const p = press;
+    press = null;
+    document.querySelectorAll('.slot.target').forEach(s => s.classList.remove('target'));
+    if (drag) { drag.ghost.remove(); drag = null; }
+    p.node.style.visibility = '';
+    render();
   };
   document.addEventListener('pointerup', endPress);
-  document.addEventListener('pointercancel', endPress);
+  document.addEventListener('pointercancel', cancelPress);
 
   // ---------- 서버 이벤트 ----------
   socket.on('block', d => {
