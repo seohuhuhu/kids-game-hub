@@ -44,7 +44,8 @@ module.exports = function registerVerse(nsp) {
       const v = room.status === 'lobby' ? currentVerse(room) : room.verseAtStart;
       round.verse = v ? { text: v.text, ref: v.ref, blocks: v.blocks } : null;
     }
-    if (live && room.hint.ref) round.ref = room.verseAtStart.ref;
+    const groupDone = typeof view === 'number' && room.groups[view] && room.groups[view].finishedAt;
+    if (live && (room.hint.ref || groupDone)) round.ref = room.verseAtStart.ref; // 완성한 그룹은 축하 화면에 참조 표시
     if (live && room.hint.first) round.first = answer.map(w => w[0]);
     const players = [...room.players.values()].map(p => {
       const g = p.group != null ? room.groups[p.group] : null;

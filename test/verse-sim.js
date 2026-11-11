@@ -108,6 +108,7 @@ function client() {
   await wait(120);
   ok(A.st.groups[0].finishedAt && A.st.groups[0].rank === 1 && A.events.some(e => e.ev === 'done' && e.d.group === 0), 'A 방식 모두 고정 → 완성·순위');
   ok(A.events.filter(e => e.ev === 'locked').length >= 6, '관리자에게 고정 알림');
+  ok(p0.st.round.ref === '테스트 1:1' && P[5].st.round.ref === undefined, '완성한 그룹에게만 참조 공개 (축하 화면용)');
 
   // 1그룹: 재입장, 내보내기
   const g1 = () => A.st.groups[1].blocks;
