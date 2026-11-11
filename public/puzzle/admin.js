@@ -193,6 +193,34 @@
 
   const editingName = () => document.activeElement && document.activeElement.classList.contains('gname');
 
+  // 사진 비율과 판 비율이 다르면 잘리는 양을 알려 주고, 비율이 맞는 크기를 추천
+  const cropOf = (c, r) => { const a = img.w / img.h, b = c / r; return 1 - Math.min(a, b) / Math.max(a, b); };
+  function renderFit(info, cols, rows) {
+    if (!img) return;
+    const crop = cropOf(cols, rows);
+    const box = el('div', 'fit');
+    if (crop <= 0.03) {
+      box.append(el('span', 'fit-ok', '✔ 사진이 거의 다 보여요'));
+    } else {
+      box.append(el('span', 'fit-warn', `⚠ 지금 크기는 사진의 약 ${Math.round(crop * 100)}%가 잘려요. 사진 비율에 맞는 크기:`));
+      const all = [];
+      for (let c = 2; c <= 8; c++) for (let r = 2; r <= 8; r++) all.push({ c, r, n: c * r, crop: cropOf(c, r) });
+      const good = all.filter(x => x.crop <= 0.06).sort((a, b) => a.n - b.n);
+      const picks = [];
+      for (const x of good) if (!picks.length || x.n >= picks[picks.length - 1].n * 1.4) picks.push(x);
+      const list = (picks.length ? picks : all.sort((a, b) => a.crop - b.crop).slice(0, 3)).slice(0, 4);
+      const row = el('div', 'fit-list');
+      list.forEach(x => {
+        const b = el('button', 'fit-btn', `${x.c}×${x.r}`);
+        b.append(el('small', null, ` ${x.n}칸 · ${x.crop < 0.01 ? '딱 맞음' : `${Math.round(x.crop * 100)}% 잘림`}`));
+        b.onclick = () => send({ cols: x.c, rows: x.r });
+        row.append(b);
+      });
+      box.append(row);
+    }
+    info.append(box);
+  }
+
   function renderLobby() {
     const { rows, cols, shape, groups } = room.settings;
     $('cols').value = cols;
@@ -215,6 +243,7 @@
     if (sizes.length) {
       info.append(el('br'), `참여 그룹 ${sizes.length}개 · 1인당 약 `, el('b', null, `${Math.floor(per / Math.max(...sizes))}~${Math.ceil(per / Math.min(...sizes))}조각`));
     }
+    renderFit(info, cols, rows);
     $('btn-start').disabled = !img || !sizes.length;
     $('btn-start').textContent = !img ? '사진을 먼저 넣어 주세요' : !sizes.length ? '참가자를 기다리는 중…' : '게임 시작';
 

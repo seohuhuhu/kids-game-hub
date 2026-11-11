@@ -117,3 +117,12 @@ select { font-family: inherit; font-size: 16px; padding: 7px 8px; border-radius:
 
 /* 작은 판의 올려 둔 조각 */
 .mini-wrap .layer.loose .piece { opacity: .45; }
+
+/* 사진 비율 맞추기 */
+.fit { margin-top: 8px; padding-top: 8px; border-top: 1px dashed #CFE9D7; }
+.fit-ok { color: #15803D; font-weight: 700; }
+.fit-warn { color: #B45309; font-weight: 700; }
+.fit-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.fit-btn { font-family: inherit; font-weight: 900; font-size: 15px; border: 1.5px solid #22C1D6; background: #fff; color: var(--ink); border-radius: 10px; padding: 6px 10px; cursor: pointer; }
+.fit-btn small { font-weight: 500; color: var(--sub); font-size: 12px; }
+.fit-btn:hover { background: #ECFEFF; }
