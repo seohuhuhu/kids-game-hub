@@ -19,6 +19,8 @@
     .game h2 { margin: 0; font-size: 28px; }
     .game p { margin: 0; color: var(--muted); font-size: 17px; line-height: 1.4; }
     .tag { align-self: flex-start; font-size: 15px; padding: 4px 10px; border-radius: 99px; background: #E8F7EA; color: #3E8E4A; }
+    .actions { display: flex; gap: 8px; margin-top: 4px; }
+    .actions .btn { text-decoration: none; }
     .soon { opacity: .6; pointer-events: none; }
     .soon .tag { background: #F2F2F5; color: var(--muted); }
     .join { margin-top: 36px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: center; }
@@ -31,12 +33,13 @@
     <p class="sub">친구들과 코드 하나로 모여서 같이 놀아요!</p>
 
     <div class="games">
-      <a class="card game" href="/puzzle/">
-        <div class="thumb" style="background: linear-gradient(135deg,#FFE29F,#FFA99F)">🧩</div>
+      <div class="card game">
+        <div class="thumb" style="background: linear-gradient(135deg,#22D3EE,#6EE75A)">🧩</div>
         <span class="tag">플레이 가능</span>
-        <h2>함께 맞추는 퍼즐</h2>
-        <p>사진 한 장을 여러 조각으로 나눠 친구들과 나눠 가져요. 내 조각을 모두 맞추면 그림이 완성!</p>
-      </a>
+        <h2>CODE:Block 퍼즐</h2>
+        <p>그룹별로 사진 한 장을 조각내 나눠 갖고 함께 맞춰요. 두 번 누르면 조각이 돌아가요!</p>
+        <div class="actions"><a class="btn small" href="/puzzle/">플레이어 입장</a><a class="btn small ghost" href="/puzzle/admin.html">관리자</a></div>
+      </div>
       <div class="card game soon">
         <div class="thumb" style="background: linear-gradient(135deg,#D4FC79,#96E6A1)">❓</div>
         <span class="tag">준비 중</span>

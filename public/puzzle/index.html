@@ -2,145 +2,111 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <title>함께 맞추는 퍼즐</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>CODE:Block</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/common.css">
-  <link rel="stylesheet" href="puzzle.css">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="theme.css">
+  <link rel="stylesheet" href="player.css">
 </head>
 <body>
-  <!-- 1. 처음 화면: 이름 + 방 만들기 / 코드로 들어가기 -->
-  <section id="screen-home" class="screen">
-    <div class="home card">
-      <a href="/" class="back">← 놀이터</a>
-      <h1>🧩 함께 맞추는 퍼즐</h1>
-      <label class="label">내 이름</label>
-      <input id="name" type="text" maxlength="10" placeholder="예) 지민">
-      <div class="home-actions">
-        <div class="invite hidden" id="invite">초대받은 방 <b id="invite-code"></b></div>
-        <button class="btn" id="btn-create">새 방 만들기</button>
-        <div class="or">또는</div>
-        <div class="join-row">
-          <input id="join-code" type="text" inputmode="numeric" maxlength="4" placeholder="방 코드 4자리">
-          <button class="btn blue" id="btn-join">들어가기</button>
-        </div>
-      </div>
+  <!-- 1. 입장 코드 -->
+  <section id="s-code" class="entry">
+    <div class="cb-card">
+      <h1 class="cb-title">CODE:Block</h1>
+      <p class="cb-sub">입장 코드를 입력하세요</p>
+      <label class="cb-label" for="code">입장 코드</label>
+      <input id="code" class="cb-input" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="0000">
     </div>
+    <button class="cb-btn" id="btn-code">확인</button>
   </section>
 
-  <!-- 2. 대기실 -->
-  <section id="screen-lobby" class="screen hidden">
-    <div class="lobby">
-      <div class="card code-card">
-        <div class="muted">휴대폰 카메라로 찍으면 바로 들어와요</div>
-        <div class="qr" id="qr"></div>
-        <div class="muted small">또는 방 코드</div>
-        <div class="big-code" id="lobby-code">----</div>
-        <div class="join-url muted small" id="join-url"></div>
-        <div class="qr-actions">
-          <button class="btn ghost small" id="btn-copy">링크 복사</button>
-          <button class="btn ghost small" id="btn-qr-big">크게 보기</button>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>함께하는 친구들 <span id="player-count" class="muted"></span></h2>
-        <ul id="player-list" class="players"></ul>
-        <button class="btn ghost small" id="btn-leave">방 나가기</button>
-      </div>
-
-      <div class="card settings">
-        <h2>퍼즐 설정 <span id="host-only" class="muted small">(방장만 바꿀 수 있어요)</span></h2>
-
-        <div class="label">사진</div>
-        <div class="image-row">
-          <div class="preview" id="preview"><span>사진을 골라 주세요</span></div>
-          <div class="image-pick">
-            <div id="presets" class="presets"></div>
-            <label class="btn ghost small upload host-ctl">
-              📷 내 사진 올리기
-              <input type="file" id="upload" accept="image/*" hidden>
-            </label>
-          </div>
-        </div>
-
-        <div class="label">조각 모양</div>
-        <div class="seg" id="shape-seg">
-          <button data-v="square" class="host-ctl">⬛ 네모</button>
-          <button data-v="triangle" class="host-ctl">🔺 세모</button>
-          <button data-v="mixed" class="host-ctl">⬛🔺 섞어서</button>
-        </div>
-
-        <div class="label">크기 (가로 × 세로 칸)</div>
-        <div class="seg" id="grid-seg"></div>
-
-        <div class="info" id="piece-info"></div>
-        <button class="btn green start" id="btn-start">게임 시작!</button>
-        <div class="muted center" id="wait-msg">방장이 게임을 시작하기를 기다리는 중…</div>
-      </div>
+  <!-- 2. 이름 + 비밀번호 -->
+  <section id="s-profile" class="entry hidden">
+    <div class="cb-card">
+      <h1 class="cb-title">반가워요!</h1>
+      <p class="cb-sub">이름과 비밀번호 4자리를 정해 주세요</p>
+      <label class="cb-label" for="name">이름</label>
+      <input id="name" class="cb-input text" maxlength="10" autocomplete="off" placeholder="예) 김지민">
+      <label class="cb-label" for="pin">비밀번호 (숫자 4자리)</label>
+      <input id="pin" class="cb-input" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="····">
+      <p class="note">🔒 화면이 꺼지거나 나가졌을 때, 같은 이름과 비밀번호로 다시 들어오면 내 퍼즐이 그대로 있어요.</p>
     </div>
+    <button class="cb-btn" id="btn-join">입장</button>
+    <button class="link" id="btn-back-code">← 입장 코드 다시 입력</button>
   </section>
 
-  <!-- 3. 게임 화면 -->
-  <section id="screen-game" class="screen hidden">
+  <!-- 3. 그룹 선택 -->
+  <section id="s-group" class="page hidden">
+    <div class="head">
+      <h1 class="cb-title sm">그룹 선택</h1>
+      <p class="cb-sub"><b id="hello-name"></b>님, 내 그룹을 골라 주세요</p>
+    </div>
+    <div class="groups" id="group-list"></div>
+    <div class="bottom-bar"><button class="cb-btn" id="btn-group" disabled>결정</button></div>
+  </section>
+
+  <!-- 4. 대기 -->
+  <section id="s-wait" class="entry hidden">
+    <div class="cb-card center">
+      <div class="badge" id="wait-group"></div>
+      <h1 class="cb-title sm">준비 완료!</h1>
+      <p class="cb-sub">선생님이 게임을 시작할 때까지 기다려 주세요</p>
+      <ul class="members" id="wait-members"></ul>
+    </div>
+    <button class="link" id="btn-leave">방 나가기</button>
+  </section>
+
+  <!-- 5. 게임 -->
+  <section id="s-game" class="game hidden">
     <header class="game-top">
-      <div class="pill">방 <b id="game-code"></b></div>
-      <div class="progress"><div class="bar" id="progress-bar"></div><span id="progress-text"></span></div>
-      <div class="pill">⏱ <b id="timer">0:00</b></div>
-      <label class="pill toggle"><input type="checkbox" id="hint" checked> 힌트</label>
+      <span class="badge sm" id="game-group"></span>
+      <div class="progress"><i id="bar"></i><span id="progress-text"></span></div>
+      <span class="pill">⏱ <b id="timer">0:00</b></span>
     </header>
     <div class="game-body">
-      <div class="board-wrap">
+      <div class="board-wrap" id="board-wrap">
         <div class="board" id="board">
-          <div class="board-hint" id="board-hint"></div>
-          <svg class="guides" id="guides" preserveAspectRatio="none"></svg>
-          <div class="placed" id="placed-layer"></div>
+          <div class="hintimg" id="hintimg"></div>
+          <svg class="guides" id="guides"></svg>
+          <div class="layer" id="layer"></div>
         </div>
+        <div class="hint-on hidden" id="hint-on">💡 선생님이 힌트를 보여 주고 있어요</div>
       </div>
-      <aside class="side">
-        <div class="card tray-card">
-          <h3 id="tray-title">내 조각</h3>
-          <div class="tray" id="tray"></div>
-          <div class="tray-done hidden" id="tray-done">🎉 내 조각을 다 맞췄어요!<br>친구들을 응원해 주세요</div>
-        </div>
-        <div class="card">
-          <h3>친구들</h3>
-          <ul class="players compact" id="game-players"></ul>
-        </div>
+      <aside class="tray-card card">
+        <div class="tray-head"><b id="tray-title">내 조각</b><span class="tip">👆👆 두 번 누르면 돌아가요</span></div>
+        <div class="tray" id="tray"></div>
+        <div class="tray-done hidden" id="tray-done">🎉 내 조각을 다 맞췄어요!<br>친구들을 응원해 주세요</div>
       </aside>
-    </div>
-
-    <div class="overlay hidden" id="result">
-      <div class="card result-card">
-        <div class="result-emoji">🎉</div>
-        <h1>퍼즐 완성!</h1>
-        <div class="muted" id="result-time"></div>
-        <img id="result-img" alt="완성된 그림">
-        <ul class="players compact" id="result-players"></ul>
-        <div class="result-actions">
-          <button class="btn green" id="btn-again">한 번 더!</button>
-          <button class="btn ghost" id="btn-exit">나가기</button>
-        </div>
-        <div class="muted small" id="result-wait">방장이 다음 판을 준비할 거예요</div>
-      </div>
     </div>
   </section>
 
-  <!-- 교실 화면에 띄우기 좋은 큰 QR -->
-  <div class="overlay hidden" id="qr-overlay">
-    <div class="card qr-big-card">
-      <h1>📱 찍고 들어와요!</h1>
-      <div class="qr big" id="qr-big"></div>
-      <div class="big-code" id="qr-big-code"></div>
-      <button class="btn ghost" id="btn-qr-close">닫기</button>
+  <!-- 그룹 확정 창 -->
+  <div class="overlay hidden" id="confirm">
+    <div class="cb-card center">
+      <h2 class="confirm-title"><span id="confirm-group"></span>으로 결정할까요?</h2>
+      <p class="cb-sub">결정하면 그룹을 바꿀 수 없어요</p>
+      <div class="row2">
+        <button class="btn big" id="btn-cancel">취소</button>
+        <button class="cb-btn sm" id="btn-accept">수락</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 그룹 완성 -->
+  <div class="overlay hidden" id="done">
+    <div class="cb-card center">
+      <div class="done-emoji">🏆</div>
+      <h1 class="cb-title sm">우리 그룹 완성!</h1>
+      <p class="cb-sub" id="done-text"></p>
+      <img id="done-img" class="done-img" alt="">
+      <button class="btn big" id="btn-done-close">닫기</button>
     </div>
   </div>
 
   <div class="toast" id="toast"></div>
-
   <script src="/socket.io/socket.io.js"></script>
-  <script src="presets.js"></script>
-  <script src="puzzle.js"></script>
+  <script src="core.js"></script>
+  <script src="player.js"></script>
 </body>
 </html>
