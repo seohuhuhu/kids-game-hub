@@ -27,6 +27,7 @@
       if (!res.ok) return toast(res.error);
       $('login-form').classList.add('hidden');
       $('room-actions').classList.remove('hidden');
+      $('login-ok').textContent = '로그인했어요. 방을 만들어 주세요.';
       $('btn-login').classList.add('hidden');
       $('btn-create').classList.remove('hidden');
     });
@@ -41,8 +42,30 @@
     const s = saved();
     if (!s) return;
     socket.emit('admin:resume', s, res => {
-      if (!res.ok) { store.del(ADMIN_KEY); showResume(); if (!silent) toast('그 방은 이미 닫혔어요.'); }
+      if (!res.ok) {
+        store.del(ADMIN_KEY);
+        showResume();
+        if (room) roomLost();
+        else if (!silent) toast('그 방은 이미 닫혔어요.');
+      }
     });
+  }
+
+  // 서버가 다시 시작되면(배포·Render 재시작) 서버 메모리의 방이 사라진다.
+  // 사라진 방 화면에 머물지 않도록 알리고 처음(로그인) 화면으로 돌아간다.
+  function roomLost() {
+    room = null;
+    qrFor = null;
+    library = { current: null, items: [] };
+    minis.clear();
+    $('s-admin').classList.add('hidden');
+    $('s-login').classList.remove('hidden');
+    $('login-form').classList.remove('hidden');
+    $('room-actions').classList.remove('hidden');
+    $('login-ok').textContent = '⚠ 서버가 다시 시작되어 방이 사라졌어요. 다시 로그인해서 새 방을 만들어 주세요.';
+    $('btn-login').classList.remove('hidden');
+    $('btn-create').classList.add('hidden');
+    toast('서버가 다시 시작되어 방이 사라졌어요');
   }
   $('btn-resume').onclick = () => resume(false);
   socket.on('connect', () => { if (room || saved()) resume(true); });
@@ -105,8 +128,11 @@
   $('g-minus').onclick = () => send({ groups: room.settings.groups - 1 });
   $('g-plus').onclick = () => send({ groups: room.settings.groups + 1 });
 
-  function sendImage(dataUrl, extra = {}) {
-    socket.emit('admin:image', { dataUrl, ...extra }, res => { if (!res.ok) toast(res.error || '사진을 올리지 못했어요.'); });
+  function sendImage(dataUrl, extra = {}, okMsg) {
+    socket.emit('admin:image', { dataUrl, ...extra }, res => {
+      if (!res.ok) return toast(res.error || '사진을 올리지 못했어요.');
+      if (okMsg) toast(okMsg); // 서버가 받은 뒤에만 성공 안내
+    });
   }
 
   // 투명도 (대기실과 게임 중 둘 다)
@@ -154,8 +180,7 @@
     try {
       selectedPreset = null;
       const [full, thumb] = await Promise.all([PZ.fileToDataUrl(f), PZ.fileToDataUrl(f, 240, 0.7)]);
-      sendImage(full, { thumb, save: true });
-      toast('사진을 올렸어요. 올린 사진 목록에서 다시 고를 수 있어요');
+      sendImage(full, { thumb, save: true }, '사진을 올렸어요. 올린 사진 목록에서 다시 고를 수 있어요');
     }
     catch { toast('이 파일은 사진으로 열 수 없어요.'); }
   };
