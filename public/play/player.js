@@ -126,6 +126,8 @@
   socket.on('state', s => {
     room = s;
     clockOffset = s.serverNow - Date.now();
+    // 게임 화면에는 항상 새 상태를 넘기고, 끄는 중이면 그리기만 끄기가 끝난 뒤로 미룬다
+    Object.values(games).forEach(g => g.setRoom(s));
     if (!Object.values(games).some(g => g.busy())) render();
   });
   socket.on('presence', ({ pid: who, online }) => {

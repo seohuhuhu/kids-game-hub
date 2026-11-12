@@ -153,7 +153,7 @@ window.PlayGames.puzzle = api => {
   setInterval(tick, 500);
 
   // ---------- 누르기 / 두 번 눌러 돌리기 / 끌어 놓기 ----------
-  const pieceById = id => { const g = myGroup(); return g && g.pieces.find(x => x.id === id); };
+  const pieceById = id => { const g = myGroup(); return g && g.pieces && g.pieces.find(x => x.id === id); };
 
   function onDown(e) {
     if (press || drag || !room || room.status !== 'playing') return;
@@ -245,6 +245,8 @@ window.PlayGames.puzzle = api => {
 
   function drop() {
     const d = drag, p = pieceById(d.id);
+    // 끄는 사이에 게임이 끝났으면(대기실로) 조각을 내려놓고 새 상태로 다시 그림
+    if (!p || !room || room.status !== 'playing') return endDrag();
     const b = $('board').getBoundingClientRect(), r = d.wrap.getBoundingClientRect();
     const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
     const onBoard = cx > b.left && cx < b.right && cy > b.top && cy < b.bottom;
@@ -274,7 +276,7 @@ window.PlayGames.puzzle = api => {
     if (d.ph && d.ph.isConnected) d.ph.replaceWith(d.wrap);
     else if (!d.ph) d.wrap.remove(), pieceEls.delete(d.id);
     else d.wrap.remove();
-    if (room && myGroup()) renderGame();
+    api.render(); // 끄는 동안 미뤄 둔 새 상태로 다시 그림
   }
 
   window.addEventListener('resize', () => { if (room && myGroup() && room.status !== 'lobby' && img && layout()) renderGame(); });
@@ -289,6 +291,7 @@ window.PlayGames.puzzle = api => {
 
   return {
     joinData: () => ({ imageVer: img ? imageVer : null }),
+    setRoom(r) { room = r; pid = api.pid(); },
     render(r) { room = r; pid = api.pid(); if (img) renderGame(); },
     clear() { clearGame(); $('done').classList.add('hidden'); },
     busy: () => !!drag,

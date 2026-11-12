@@ -202,6 +202,7 @@ window.PlayGames.verse = api => {
 
   return {
     joinData: () => ({}),
+    setRoom(r) { room = r; pid = api.pid(); clockOffset = api.clockOffset(); },
     render(r) { room = r; pid = api.pid(); clockOffset = api.clockOffset(); if (!drag) renderGame(); },
     clear() { selected = null; lastSubmit = null; $('v-done').classList.add('hidden'); },
     busy: () => !!drag,
