@@ -11,6 +11,7 @@ const registerPuzzle = require('./games/puzzle/server');
 const registerVerse = require('./games/verse/server');
 const registerSession = require('./games/session/server');
 const puzzleGame = require('./games/puzzle/game');
+const verseGame = require('./games/verse/game');
 
 const app = express();
 const server = http.createServer(app);
@@ -47,7 +48,7 @@ app.get('/api/qr', async (req, res) => {
 registerPuzzle(io.of('/puzzle'));
 registerVerse(io.of('/verse'));
 // 통합 세션: 한 방에서 여러 게임을 차례로
-registerSession(io.of('/play'), { puzzle: puzzleGame });
+registerSession(io.of('/play'), { puzzle: puzzleGame, verse: verseGame });
 
 // 한 게임의 처리 오류로 서버 전체(다른 게임의 방까지)가 꺼지지 않도록 기록만 하고 계속 실행
 process.on('uncaughtException', e => console.error('처리되지 않은 오류:', e));
