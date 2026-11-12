@@ -34,30 +34,23 @@
 
     <div class="games">
       <div class="card game">
-        <div class="thumb" style="background: linear-gradient(135deg,#22D3EE,#6EE75A)">🧩</div>
+        <div class="thumb" style="background: linear-gradient(135deg,#22D3EE,#6EE75A)">🧩📖</div>
         <span class="tag">플레이 가능</span>
-        <h2>CODE:Block 퍼즐</h2>
-        <p>그룹별로 사진 한 장을 조각내 나눠 갖고 함께 맞춰요. 두 번 누르면 조각이 돌아가요!</p>
-        <div class="actions"><a class="btn small" href="/puzzle/">플레이어 입장</a><a class="btn small ghost" href="/puzzle/admin.html">관리자</a></div>
-      </div>
-      <div class="card game">
-        <div class="thumb" style="background: linear-gradient(135deg,#FDE68A,#6EE75A)">📖</div>
-        <span class="tag">플레이 가능</span>
-        <h2>말씀 블록</h2>
-        <p>구절을 단어 블록으로 나눠 갖고, 그룹 친구들과 이야기하며 말씀 한 줄을 완성해요!</p>
-        <div class="actions"><a class="btn small" href="/verse/">플레이어 입장</a><a class="btn small ghost" href="/verse/admin.html">관리자</a></div>
+        <h2>CODE:Block 놀이터</h2>
+        <p>한 번 들어오면 🧩 퍼즐과 📖 말씀 블록을 방을 나가지 않고 차례로 함께해요. 그룹 친구들과 이야기하며 맞춰요!</p>
+        <div class="actions"><a class="btn small" href="/play/">플레이어 입장</a><a class="btn small ghost" href="/play/admin.html">관리자</a></div>
       </div>
     </div>
 
     <div class="join">
-      <span style="font-size:20px">퍼즐 방 코드가 있나요?</span>
+      <span style="font-size:20px">입장 코드가 있나요?</span>
       <input id="code" type="text" inputmode="numeric" maxlength="4" placeholder="0000">
       <button class="btn blue" id="go">들어가기</button>
     </div>
   </div>
   <script>
     const input = document.getElementById('code');
-    const go = () => { const c = input.value.trim(); if (c) location.href = '/puzzle/?code=' + encodeURIComponent(c); };
+    const go = () => { const c = input.value.trim(); if (c) location.href = '/play/?code=' + encodeURIComponent(c); };
     document.getElementById('go').onclick = go;
     input.addEventListener('keydown', e => e.key === 'Enter' && go());
   </script>

@@ -7,8 +7,6 @@ const os = require('os');
 const { Server } = require('socket.io');
 const QRCode = require('qrcode');
 
-const registerPuzzle = require('./games/puzzle/server');
-const registerVerse = require('./games/verse/server');
 const registerSession = require('./games/session/server');
 const puzzleGame = require('./games/puzzle/game');
 const verseGame = require('./games/verse/game');
@@ -45,8 +43,6 @@ app.get('/api/qr', async (req, res) => {
 });
 
 // ---- 게임 등록 ----
-registerPuzzle(io.of('/puzzle'));
-registerVerse(io.of('/verse'));
 // 통합 세션: 한 방에서 여러 게임을 차례로
 registerSession(io.of('/play'), { puzzle: puzzleGame, verse: verseGame });
 
