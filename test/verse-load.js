@@ -1,7 +1,7 @@
 // 말씀 블록 부하 테스트
 // 사용법: node test/verse-load.js [플레이어=50] [그룹=8] [모드=instant|submit]
 const { io } = require('socket.io-client');
-const URL = process.env.URL || 'http://localhost:3000/verse';
+const URL = (process.env.BASE || 'http://localhost:3000') + '/play';
 const [N = 50, G = 8] = process.argv.slice(2, 4).map(Number);
 const MODE = process.argv[4] || 'instant';
 const TEXT = '말 한마디가 누군가의 인생을 바꿀 수 있어요 오늘 우리의 입술에 감사를 가득 담아'; // 12블록
@@ -13,9 +13,10 @@ const pct = (a, p) => a.length ? a.slice().sort((x, y) => x - y)[Math.min(a.leng
   const admin = io(URL, { forceNew: true, transports: ['websocket'] });
   await emit(admin, 'admin:login', { password: process.env.ADMIN_PASSWORD || 'admin' });
   const { code } = await emit(admin, 'admin:create');
+  admin.emit('admin:game', { id: 'verse' });
   admin.emit('admin:settings', { groups: G });
-  const v = await emit(admin, 'admin:addVerse', { text: TEXT, ref: '테스트' });
-  admin.emit('admin:round', { verseId: v.id, mode: MODE });
+  const v = await emit(admin, 'verse:add', { text: TEXT, ref: '테스트' });
+  admin.emit('verse:round', { verseId: v.id, mode: MODE });
   const answer = TEXT.split(' ');
   let adminState; admin.on('state', s => { adminState = s; });
 
@@ -27,7 +28,7 @@ const pct = (a, p) => a.length ? a.slice().sort((x, y) => x - y)[Math.min(a.leng
     s.onAny((ev, d) => { bytesIn += JSON.stringify(d ?? '').length; });
     s.on('disconnect', () => disconnects++);
     s.on('state', st => { c.st = st; });
-    s.on('block', d => { const b = c.st && c.st.groups[d.g].blocks.find(x => x.id === d.b.id); if (b) Object.assign(b, d.b); });
+    s.on('verse:block', d => { const b = c.st && c.st.groups[d.g].blocks.find(x => x.id === d.b.id); if (b) Object.assign(b, d.b); });
     c.pid = (await emit(s, 'p:join', { code, name: 'P' + i, pin: '1234' })).pid;
     await emit(s, 'p:group', { group: i % G });
     players.push(c);
@@ -48,16 +49,16 @@ const pct = (a, p) => a.length ? a.slice().sort((x, y) => x - y)[Math.min(a.leng
       const tray = g.blocks.filter(b => b.owner === c.pid && b.slot == null);
       const placed = g.blocks.filter(b => b.owner === c.pid && b.slot != null && !b.locked);
       const t = Date.now();
-      if (MODE === 'submit' && !empty.length && Math.random() < 0.3) await emit(c.s, 'p:submit');
+      if (MODE === 'submit' && !empty.length && Math.random() < 0.3) await emit(c.s, 'verse:submit');
       else if (placed.length && (Math.random() < 0.3 || !tray.length)) {
         const b = placed[0];
-        if (answer[b.slot] !== b.text || Math.random() < 0.2) await emit(c.s, 'p:unplace', { blockId: b.id });
+        if (answer[b.slot] !== b.text || Math.random() < 0.2) await emit(c.s, 'verse:unplace', { blockId: b.id });
         else continue;
       } else if (tray.length && empty.length) {
         const b = tray[0];
         const right = empty.find(i => answer[i] === b.text);
         const slot = right != null && Math.random() < 0.6 ? right : empty[Math.floor(Math.random() * empty.length)];
-        await emit(c.s, 'p:place', { blockId: b.id, slot });
+        await emit(c.s, 'verse:place', { blockId: b.id, slot });
       } else continue;
       lat.push(Date.now() - t); actions++;
     }
