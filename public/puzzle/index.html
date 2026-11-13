@@ -2,112 +2,11 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <title>CODE:Block</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@500;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="theme.css">
-  <link rel="stylesheet" href="player.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CODE:Block 놀이터로 이동</title>
+  <script>location.replace('/play/' + location.search);</script>
 </head>
 <body>
-  <!-- 1. 입장 코드 -->
-  <section id="s-code" class="entry">
-    <div class="cb-card">
-      <h1 class="cb-title">CODE:Block</h1>
-      <p class="cb-sub">입장 코드를 입력하세요</p>
-      <label class="cb-label" for="code">입장 코드</label>
-      <input id="code" class="cb-input" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="0000">
-    </div>
-    <button class="cb-btn" id="btn-code">확인</button>
-  </section>
-
-  <!-- 2. 이름 + 비밀번호 -->
-  <section id="s-profile" class="entry hidden">
-    <div class="cb-card">
-      <h1 class="cb-title">반가워요!</h1>
-      <p class="cb-sub">이름과 비밀번호 4자리를 정해 주세요</p>
-      <label class="cb-label" for="name">이름</label>
-      <input id="name" class="cb-input text" maxlength="10" autocomplete="off" placeholder="예) 김지민">
-      <label class="cb-label" for="pin">비밀번호 (숫자 4자리)</label>
-      <input id="pin" class="cb-input" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="····">
-      <p class="note">🔒 화면이 꺼지거나 나가졌을 때, 같은 이름과 비밀번호로 다시 들어오면 내 퍼즐이 그대로 있어요.</p>
-    </div>
-    <button class="cb-btn" id="btn-join">입장</button>
-    <button class="link" id="btn-back-code">← 입장 코드 다시 입력</button>
-  </section>
-
-  <!-- 3. 그룹 선택 -->
-  <section id="s-group" class="page hidden">
-    <div class="head">
-      <h1 class="cb-title sm">그룹 선택</h1>
-      <p class="cb-sub"><b id="hello-name"></b>님, 내 그룹을 골라 주세요</p>
-    </div>
-    <div class="groups" id="group-list"></div>
-    <div class="bottom-bar"><button class="cb-btn" id="btn-group" disabled>결정</button></div>
-  </section>
-
-  <!-- 4. 대기 -->
-  <section id="s-wait" class="entry hidden">
-    <div class="cb-card center">
-      <div class="badge" id="wait-group"></div>
-      <h1 class="cb-title sm">준비 완료!</h1>
-      <p class="cb-sub">선생님이 게임을 시작할 때까지 기다려 주세요</p>
-      <ul class="members" id="wait-members"></ul>
-    </div>
-    <button class="link" id="btn-leave">방 나가기</button>
-  </section>
-
-  <!-- 5. 게임 -->
-  <section id="s-game" class="game hidden">
-    <header class="game-top">
-      <span class="badge sm" id="game-group"></span>
-      <div class="progress"><i id="bar"></i><span id="progress-text"></span></div>
-      <span class="pill">⏱ <b id="timer">0:00</b></span>
-    </header>
-    <div class="game-body">
-      <div class="board-wrap" id="board-wrap">
-        <div class="board" id="board">
-          <div class="hintimg" id="hintimg"></div>
-          <svg class="guides" id="guides"></svg>
-          <div class="layer" id="layer"></div>
-          <div class="layer loose" id="loose"></div>
-        </div>
-        <div class="hint-on hidden" id="hint-on">💡 선생님이 힌트를 보여 주고 있어요</div>
-      </div>
-      <aside class="tray-card card">
-        <div class="tray-head"><b id="tray-title">내 조각</b><span class="tip">👆👆 두 번 누르면 돌아가요</span></div>
-        <div class="tray" id="tray"></div>
-        <div class="tray-done hidden" id="tray-done">🎉 내 조각을 다 맞췄어요!<br>친구들을 응원해 주세요</div>
-      </aside>
-    </div>
-  </section>
-
-  <!-- 그룹 확정 창 -->
-  <div class="overlay hidden" id="confirm">
-    <div class="cb-card center">
-      <h2 class="confirm-title"><span id="confirm-group"></span>으로 결정할까요?</h2>
-      <p class="cb-sub">결정하면 그룹을 바꿀 수 없어요</p>
-      <div class="row2">
-        <button class="btn big" id="btn-cancel">취소</button>
-        <button class="cb-btn sm" id="btn-accept">수락</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 그룹 완성 -->
-  <div class="overlay hidden" id="done">
-    <div class="cb-card center">
-      <div class="done-emoji">🏆</div>
-      <h1 class="cb-title sm">우리 그룹 완성!</h1>
-      <p class="cb-sub" id="done-text"></p>
-      <img id="done-img" class="done-img" alt="">
-      <button class="btn big" id="btn-done-close">닫기</button>
-    </div>
-  </div>
-
-  <div class="toast" id="toast"></div>
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="core.js"></script>
-  <script src="player.js"></script>
+  <p>새 주소로 이동하고 있어요. 자동으로 넘어가지 않으면 <a href="/play/">여기</a>를 눌러 주세요.</p>
 </body>
 </html>

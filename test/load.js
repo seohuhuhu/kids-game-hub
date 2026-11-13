@@ -2,7 +2,7 @@
 // 사용법: node test/load.js [플레이어 수=50] [그룹 수=8] [가로=5] [세로=7] [모양=mixed]
 const { io } = require('socket.io-client');
 const fs = require('fs');
-const URL = process.env.URL || 'http://localhost:3000/puzzle';
+const URL = (process.env.BASE || 'http://localhost:3000') + '/play';
 const [N = 50, G = 8, COLS = 5, ROWS = 7] = process.argv.slice(2, 6).map(Number);
 const SHAPE = process.argv[6] || 'mixed';
 const IMG = process.env.IMG ? 'data:image/jpeg;base64,' + fs.readFileSync(process.env.IMG).toString('base64') : 'data:image/jpeg;base64,AAAA';
@@ -14,8 +14,10 @@ const pct = (a, p) => a.length ? a.slice().sort((x, y) => x - y)[Math.min(a.leng
   const admin = io(URL, { forceNew: true, transports: ['websocket'] });
   await emit(admin, 'admin:login', { password: process.env.ADMIN_PASSWORD || 'admin' });
   const { code } = await emit(admin, 'admin:create');
-  admin.emit('admin:settings', { groups: G, cols: COLS, rows: ROWS, shape: SHAPE });
-  await emit(admin, 'admin:image', { dataUrl: IMG, thumb: IMG, save: true });
+  admin.emit('admin:game', { id: 'puzzle' });
+  admin.emit('admin:settings', { groups: G });
+  admin.emit('puzzle:settings', { cols: COLS, rows: ROWS, shape: SHAPE });
+  await emit(admin, 'puzzle:image', { dataUrl: IMG, thumb: IMG, save: true });
 
   let bytesIn = 0, events = 0, disconnects = 0;
   const lat = [];
@@ -26,7 +28,7 @@ const pct = (a, p) => a.length ? a.slice().sort((x, y) => x - y)[Math.min(a.leng
     s.on('disconnect', () => disconnects++);
     const view = { pid: null, state: null };
     s.on('state', st => { view.state = st; });
-    s.on('piece', d => {   // 변경분(최적화 버전)
+    s.on('puzzle:piece', d => {   // 변경분(최적화 버전)
       const g = view.state && view.state.groups[d.g];
       if (!g) return;
       const k = g.pieces.findIndex(p => p.id === d.p.id);
@@ -38,7 +40,7 @@ const pct = (a, p) => a.length ? a.slice().sort((x, y) => x - y)[Math.min(a.leng
     players.push({ s, view });
   }
   let adminState; admin.on('state', st => { adminState = st; });
-  admin.on('piece', d => { const g = adminState && adminState.groups[d.g]; const p = g && g.pieces.find(x => x.id === d.p.id); if (p) Object.assign(p, d.p); });
+  admin.on('puzzle:piece', d => { const g = adminState && adminState.groups[d.g]; const p = g && g.pieces.find(x => x.id === d.p.id); if (p) Object.assign(p, d.p); });
   const bytesBeforeStart = bytesIn;
   await emit(admin, 'admin:start');
   await wait(500);
@@ -57,11 +59,11 @@ const pct = (a, p) => a.length ? a.slice().sort((x, y) => x - y)[Math.min(a.leng
       const roll = Math.random();
       const t = Date.now();
       let res;
-      if (roll < 0.35) res = await emit(s, 'p:rotate', { pieceId: p.id });
-      else if (roll < 0.65) res = await emit(s, 'p:move', { pieceId: p.id, x: Math.random() * 0.9, y: Math.random() * 0.9 });
+      if (roll < 0.35) res = await emit(s, 'puzzle:rotate', { pieceId: p.id });
+      else if (roll < 0.65) res = await emit(s, 'puzzle:move', { pieceId: p.id, x: Math.random() * 0.9, y: Math.random() * 0.9 });
       else {
-        if (p.rot !== 0) res = await emit(s, 'p:rotate', { pieceId: p.id });
-        else res = await emit(s, 'p:move', { pieceId: p.id, x: p.col / COLS + 0.02, y: p.row / ROWS - 0.02 });
+        if (p.rot !== 0) res = await emit(s, 'puzzle:rotate', { pieceId: p.id });
+        else res = await emit(s, 'puzzle:move', { pieceId: p.id, x: p.col / COLS + 0.02, y: p.row / ROWS - 0.02 });
       }
       lat.push(Date.now() - t); actions++;
       if (res && typeof res.rot === 'number') { const q = g.pieces.find(x => x.id === p.id); if (q) q.rot = res.rot; }

@@ -1,143 +1,18 @@
-// CODE:Block 퍼즐 - 플레이어 화면
-(() => {
-  const { $, el, toast, sound, store } = PZ;
-  const socket = io('/puzzle');
-  const SESSION_KEY = 'cb-session';
-
-  let code = null;          // 확인된 입장 코드
-  let pid = null;           // 내 플레이어 id
-  let room = null;          // 방 상태
-  let img = null;           // {url,w,h,dataUrl}
-  let selectedGroup = null;
-  let clockOffset = 0;
-  let cell = 0, W = 0, H = 0;
-  let gameKey = null;
-  let doneShownFor = null;
-  const pieceEls = new Map();
-  const placedSeen = new Set();
-  let press = null;         // 누르고 있는 조각
-  let drag = null;          // 끌고 있는 조각
-  let lastTap = null;
-
-  // ---------- 화면 전환 ----------
-  const SCREENS = ['code', 'profile', 'group', 'wait', 'game'];
-  function show(name) { SCREENS.forEach(s => $('s-' + s).classList.toggle('hidden', s !== name)); }
-
+// 통합 플레이어 - 퍼즐 게임 화면 (public/play/player.js가 불러 씀)
+window.PlayGames = window.PlayGames || {};
+window.PlayGames.puzzle = api => {
+  const { $, el, toast, sound } = PZ;
+  const socket = api.socket;
+  let room = null, pid = null, img = null, imageVer = null;
+  let cell = 0, W = 0, H = 0, gameKey = null, doneShownFor = null;
+  const pieceEls = new Map(), placedSeen = new Set();
+  let press = null, drag = null, lastTap = null;
   const meP = () => room && room.players.find(p => p.pid === pid);
   const myGroup = () => { const p = meP(); return p && p.group != null ? room.groups[p.group] : null; };
+  const clockOffset = () => api.clockOffset();
 
-  // ---------- 1. 입장 코드 ----------
-  const urlCode = new URLSearchParams(location.search).get('code');
-  if (/^\d{4}$/.test(urlCode || '')) $('code').value = urlCode;
-  $('code').addEventListener('input', e => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 4); });
-  $('code').addEventListener('keydown', e => e.key === 'Enter' && $('btn-code').click());
-
-  $('btn-code').onclick = () => {
-    const c = $('code').value.trim();
-    if (!/^\d{4}$/.test(c)) return toast('입장 코드 4자리를 입력해 주세요.');
-    socket.emit('p:check', { code: c }, res => {
-      if (!res.ok) return toast(res.error);
-      code = c;
-      const saved = store.get(SESSION_KEY);
-      if (saved && saved.code === c) { $('name').value = saved.name; $('pin').value = saved.pin; }
-      show('profile');
-      setTimeout(() => $(saved && saved.code === c ? 'btn-join' : 'name').focus(), 50);
-    });
-  };
-
-  // ---------- 2. 이름 + 비밀번호 ----------
-  $('pin').addEventListener('input', e => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 4); });
-  $('pin').addEventListener('keydown', e => e.key === 'Enter' && $('btn-join').click());
-  $('btn-back-code').onclick = () => show('code');
-
-  function join(name, pin, silent) {
-    socket.emit('p:join', { code, name, pin, imageVer: img ? imageVer : null }, res => {
-      if (!res.ok) {
-        if (silent) { store.del(SESSION_KEY); show('code'); }
-        return toast(res.error);
-      }
-      pid = res.pid;
-      store.set(SESSION_KEY, { code, name, pin });
-      history.replaceState(null, '', '?code=' + code);
-      if (res.rejoined && !silent) toast('다시 돌아왔어요! 하던 퍼즐을 이어서 해요');
-    });
-  }
-  $('btn-join').onclick = () => {
-    const name = $('name').value.trim(), pin = $('pin').value.trim();
-    if (!name) return toast('이름을 입력해 주세요.');
-    if (!/^\d{4}$/.test(pin)) return toast('비밀번호는 숫자 4자리예요.');
-    join(name, pin);
-  };
-
-  // 새로고침/연결 끊김 뒤 자동으로 다시 들어가기
-  socket.on('connect', () => {
-    const saved = store.get(SESSION_KEY);
-    const target = pid ? code : (urlCode || null);
-    if (saved && saved.code && (pid || saved.code === target)) {
-      code = saved.code;
-      join(saved.name, saved.pin, true);
-    }
-  });
-
-  function resetToStart(msg) {
-    pid = null; room = null; code = null;
-    clearGame();
-    store.del(SESSION_KEY);
-    show('code');
-    if (msg) toast(msg);
-  }
-  socket.on('kicked', msg => resetToStart(msg || '선생님이 방에서 내보냈어요.'));
-  socket.on('closed', () => resetToStart('선생님이 방을 닫았어요.'));
-  $('btn-leave').onclick = () => { socket.emit('p:leave'); resetToStart(); };
-
-  // ---------- 3. 그룹 선택 ----------
-  function renderGroups() {
-    $('hello-name').textContent = meP().name;
-    const list = $('group-list');
-    list.innerHTML = '';
-    room.groups.forEach(g => {
-      const members = room.players.filter(p => p.group === g.index);
-      const b = el('button', 'group-btn' + (selectedGroup === g.index ? ' sel' : ''));
-      b.append(el('b', null, g.name), el('span', 'cnt', `${members.length}명`), el('span', 'names', members.map(m => m.name).join(', ')));
-      b.onclick = () => { selectedGroup = g.index; renderGroups(); };
-      list.append(b);
-    });
-    if (selectedGroup != null && selectedGroup >= room.groups.length) selectedGroup = null;
-    $('btn-group').disabled = selectedGroup == null;
-  }
-  $('btn-group').onclick = () => {
-    if (selectedGroup == null) return;
-    $('confirm-group').textContent = room.groups[selectedGroup].name;
-    $('confirm').classList.remove('hidden');
-  };
-  $('btn-cancel').onclick = () => $('confirm').classList.add('hidden');
-  $('btn-accept').onclick = () => {
-    socket.emit('p:group', { group: selectedGroup }, res => {
-      $('confirm').classList.add('hidden');
-      if (!res.ok) toast(res.error);
-    });
-  };
-
-  // ---------- 4. 대기 ----------
-  function renderWait() {
-    const p = meP(), list = $('wait-members');
-    $('wait-group').textContent = p.group != null ? room.groups[p.group].name : '구경 중';
-    list.innerHTML = '';
-    room.players.filter(x => x.group === p.group && p.group != null).forEach(m => {
-      const li = el('li');
-      const d = el('span', 'dot'); d.style.background = m.color;
-      li.append(d, el('span', null, m.name));
-      if (m.pid === pid) li.append(el('span', 'me', '나'));
-      list.append(li);
-    });
-    const sub = document.querySelector('#s-wait .cb-sub');
-    sub.textContent = room.status === 'lobby' ? '선생님이 게임을 시작할 때까지 기다려 주세요'
-      : '이번 판에는 그룹이 없어 참여하지 못했어요. 다음 판을 기다려 주세요';
-  }
-
-  // ---------- 5. 게임 ----------
   function layout() {
-    const { rows, cols } = room.settings;
+    const { rows, cols } = room.round;
     let maxW, maxH;
     if (window.innerWidth <= 820) {
       maxW = window.innerWidth - 44;
@@ -186,11 +61,11 @@
     const key = room.startedAt + ':' + g.index;
     if (key !== gameKey) { clearGame(); gameKey = key; }
     layout();
-    PZ.drawGuides($('guides'), g.pieces, room.settings.rows, room.settings.cols);
+    PZ.drawGuides($('guides'), g.pieces, room.round.rows, room.round.cols);
     $('hintimg').style.backgroundImage = `url(${img.url})`;
-    $('board').classList.toggle('hint', room.hint);
-    $('board').style.setProperty('--op', room.settings.opacity);
-    $('hint-on').classList.toggle('hidden', !room.hint);
+    $('board').classList.toggle('hint', room.round.hint);
+    $('board').style.setProperty('--op', room.round.opacity);
+    $('hint-on').classList.toggle('hidden', !room.round.hint);
     $('game-group').textContent = g.name;
 
     const tray = $('tray'), tc = trayCell();
@@ -272,13 +147,13 @@
   function tick() {
     if (!room || !room.startedAt || room.status === 'lobby') return;
     const g = myGroup();
-    const end = (g && g.finishedAt) || Date.now() + clockOffset;
+    const end = (g && g.finishedAt) || Date.now() + clockOffset();
     $('timer').textContent = PZ.fmtTime(end - room.startedAt);
   }
   setInterval(tick, 500);
 
   // ---------- 누르기 / 두 번 눌러 돌리기 / 끌어 놓기 ----------
-  const pieceById = id => { const g = myGroup(); return g && g.pieces.find(x => x.id === id); };
+  const pieceById = id => { const g = myGroup(); return g && g.pieces && g.pieces.find(x => x.id === id); };
 
   function onDown(e) {
     if (press || drag || !room || room.status !== 'playing') return;
@@ -352,14 +227,14 @@
     const w = pieceEls.get(id);
     if (w) style(w, p, posOf(p) ? cell : trayCell());
     sound.turn();
-    socket.emit('p:rotate', { pieceId: id }, res => { if (res && res.placed) sound.good(); });
+    socket.emit('puzzle:rotate', { pieceId: id }, res => { if (res && res.placed) sound.good(); });
   }
 
   function sendMove(id, pos) {
     pending.set(id, pos);
-    socket.emit('p:move', { pieceId: id, x: pos ? pos.x : null, y: pos ? pos.y : null }, res => {
+    socket.emit('puzzle:move', { pieceId: id, x: pos ? pos.x : null, y: pos ? pos.y : null }, res => {
       pending.delete(id);
-      if (!res || !res.ok) return room && render();
+      if (!res || !res.ok) return room && api.render();
       if (res.placed) {
         sound.good();
         const w = pieceEls.get(id);
@@ -370,6 +245,8 @@
 
   function drop() {
     const d = drag, p = pieceById(d.id);
+    // 끄는 사이에 게임이 끝났으면(대기실로) 조각을 내려놓고 새 상태로 다시 그림
+    if (!p || !room || room.status !== 'playing') return endDrag();
     const b = $('board').getBoundingClientRect(), r = d.wrap.getBoundingClientRect();
     const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
     const onBoard = cx > b.left && cx < b.right && cy > b.top && cy < b.bottom;
@@ -377,7 +254,7 @@
       // 판 밖에 놓으면 쟁반으로 되돌림
       const wasOnBoard = !!posOf(p);
       endDrag();
-      if (wasOnBoard) { sendMove(d.id, null); render(); }
+      if (wasOnBoard) { sendMove(d.id, null); api.render(); }
       return;
     }
     const pos = { x: (r.left - b.left) / b.width, y: (r.top - b.top) / b.height };
@@ -386,7 +263,7 @@
     if (d.ph) d.ph.remove();
     sendMove(d.id, pos);
     putLoose(d.wrap, pos);
-    render();
+    api.render();
   }
 
   // 끌던 조각을 원래 있던 곳(쟁반 빈자리 또는 판 위 자리)으로 돌려놓음
@@ -399,45 +276,24 @@
     if (d.ph && d.ph.isConnected) d.ph.replaceWith(d.wrap);
     else if (!d.ph) d.wrap.remove(), pieceEls.delete(d.id);
     else d.wrap.remove();
-    if (room && myGroup()) renderGame();
+    api.render(); // 끄는 동안 미뤄 둔 새 상태로 다시 그림
   }
 
   window.addEventListener('resize', () => { if (room && myGroup() && room.status !== 'lobby' && img && layout()) renderGame(); });
 
+
   // ---------- 서버 이벤트 ----------
-  let imageVer = null;
-  socket.on('image', d => {
-    const dataUrl = typeof d === 'string' ? d : d.dataUrl;
+  socket.on('puzzle:image', d => {
     imageVer = d.ver;
-    PZ.loadImage(dataUrl).then(i => { if (img) URL.revokeObjectURL(img.url); img = i; if (room) render(); });
+    PZ.loadImage(d.dataUrl).then(i => { if (img) URL.revokeObjectURL(img.url); img = i; api.render(); });
   });
-  socket.on('presence', ({ pid: who, online }) => {
-    const p = room && room.players.find(x => x.pid === who);
-    if (p) { p.online = online; render(); }
-  });
+  socket.on('puzzle:piece', d => { if (room && room.game === 'puzzle' && PZ.applyPiece(room, d)) api.render(); });
 
-  socket.on('piece', d => { if (PZ.applyPiece(room, d)) render(); });
-
-  socket.on('state', s => {
-    room = s;
-    clockOffset = s.serverNow - Date.now();
-    render();
-  });
-
-  function render() {
-    if (!pid || !room) return;
-    const me = meP();
-    if (!me) return;
-    if (room.status === 'lobby') {
-      clearGame();
-      $('done').classList.add('hidden');
-      if (me.group == null) { show('group'); renderGroups(); }
-      else { $('confirm').classList.add('hidden'); show('wait'); renderWait(); }
-      return;
-    }
-    const g = myGroup();
-    if (!g || !g.active) { show('wait'); renderWait(); return; }
-    show('game');
-    if (img) renderGame();
-  }
-})();
+  return {
+    joinData: () => ({ imageVer: img ? imageVer : null }),
+    setRoom(r) { room = r; pid = api.pid(); },
+    render(r) { room = r; pid = api.pid(); if (img) renderGame(); },
+    clear() { clearGame(); $('done').classList.add('hidden'); },
+    busy: () => !!drag,
+  };
+};
