@@ -90,9 +90,11 @@ select { font-family: inherit; font-size: 16px; padding: 7px 8px; border-radius:
 .gcard .stat { display: flex; justify-content: space-between; font-size: 14px; color: var(--sub); }
 
 /* ---------- 큰 QR ---------- */
-.qr-big-card { max-width: 640px !important; }
-.qr.big { width: min(64vmin, 480px); height: min(64vmin, 480px); margin: 18px auto 8px; }
-.big-code { font-weight: 900; font-size: 56px; letter-spacing: 14px; margin-bottom: 14px; }
+/* QR 크게 보기: 화면 높이에 맞춰 QR 크기를 줄여 닫기 버튼까지 한 화면에 들어오게 */
+#qr-overlay { overflow-y: auto; }
+.qr-big-card { max-width: 640px !important; max-height: calc(100dvh - 44px); }
+.qr.big { --qr: max(160px, min(64vmin, 480px, calc(100dvh - 330px))); width: var(--qr); height: var(--qr); margin: 14px auto 6px; }
+.big-code { font-weight: 900; font-size: clamp(36px, 7vh, 56px); letter-spacing: 14px; margin-bottom: 12px; }
 
 /* 그룹 이름 수정 */
 .gname { font-family: inherit; font-weight: 900; font-size: 19px; border: 1.5px dashed transparent; border-radius: 8px; padding: 2px 6px; width: 100%; min-width: 0; background: transparent; color: var(--ink); }
